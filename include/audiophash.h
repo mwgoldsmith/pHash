@@ -22,18 +22,14 @@
 
 */
 
-#ifndef _AUDIO_PHASH_H
-#define _AUDIO_PHASH_H
+#ifndef AUDIO_PHASH_H
+#define AUDIO_PHASH_H
 
-#include <limits.h>
-#include <math.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <algorithm>
-#include "pHash.h"
+#if HAVE_AUDIO_HASH
+
+#include "phash.h"
 
 extern "C" {
-#include "ph_fft.h"
 
 /*  /brief count number of samples in file
  *  
@@ -43,9 +39,6 @@ extern "C" {
  *  /return int count of number of sampels, negative for error
 */
 int ph_count_samples(const char *filename, int sr,int channels);
-
-
-
 
 /* /brief read audio 
  *
@@ -81,7 +74,6 @@ DP **ph_audio_hashes(char *files[], int count, int sr = 8000, int channels = 1, 
  */
 int ph_bitcount(uint32_t n);
 
-
 /* /brief compare 2 hash blocks 
  * /param ptr_blockA - pointer to the first block
  * /param ptr_blockB - pointer to the second block
@@ -89,7 +81,6 @@ int ph_bitcount(uint32_t n);
  * /return double bit error rate (ber) from comparing two blocks, neg for error
  */
 double ph_compare_blocks(const uint32_t *ptr_blockA,const uint32_t *ptr_blockB, const int block_size);
-
 
 /* /brief distance function between two hashes
  *
@@ -106,4 +97,6 @@ double* ph_audio_distance_ber(uint32_t *hash_a , const int Na, uint32_t *hash_b,
 
 }
 
-#endif
+#endif /* HAVE_AUDIO_HASH */
+
+#endif /* AUDIO_PHASH_H */
