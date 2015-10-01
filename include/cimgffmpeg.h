@@ -27,20 +27,13 @@
 #ifndef CIMGFFMPEG_H_
 #define CIMGFFMPEG_H_
 
-#define cimg_display 0
-#define cimg_debug 0
-
-#include "CImg.h"
-
-#define __STDC_CONSTANT_MACROS
+#include "phash.h"
+#if HAVE_VIDEO_HASH
 
 extern "C" {
 #include "./libavformat/avformat.h"
 #include "./libavcodec/avcodec.h"
-#include "./libswscale/swscale.h"
 }
-
-using namespace cimg_library;
 
 typedef struct vf_info {
     int step;
@@ -58,17 +51,15 @@ typedef struct vf_info {
 
 void vfinfo_close(VFInfo*  vfinfo);
 
-int ReadFrames(VFInfo* st_info, CImgList<uint8_t>* pFrameList, unsigned int low_index, unsigned int hi_index);
+int ReadFrames(VFInfo* st_info, ImgListU8* pFrameList, unsigned int low_index, unsigned int hi_index);
 
-
-int NextFrames(VFInfo* st_info, CImgList<uint8_t>* pFrameList);
-
+int NextFrames(VFInfo* st_info, ImgListU8* pFrameList);
 
 int GetNumberStreams(const char* file);
 
-
-long GetNumberVideoFrames(const char* file);
+int64_t GetNumberVideoFrames(const char* file);
 
 float fps(const char* filename);
 
+#endif /* HAVE_VIDEO_HASH */
 #endif /*CIMGFFMPEG_H_*/
