@@ -1,19 +1,41 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="..\..\src\audiophash.cpp" />
-    <ClCompile Include="..\..\src\cimgffmpeg.cpp" />
-    <ClCompile Include="..\..\src\phash.cpp" />
-    <ClCompile Include="..\..\src\phcomplex.c" />
-    <ClCompile Include="..\..\src\ph_fft.c" />
+    <ClCompile Include="..\..\src\audiophash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\cimgffmpeg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ph_fft.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\phash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\phcomplex.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\audiophash.h" />
-    <ClInclude Include="..\..\include\cimgffmpeg.h" />
-    <ClInclude Include="..\..\include\phash.h" />
-    <ClInclude Include="..\..\include\phashconfig.h" />
-    <ClInclude Include="..\..\include\phcomplex.h" />
-    <ClInclude Include="..\..\include\ph_fft.h" />
+    <ClInclude Include="..\..\include\phcomplex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\phashconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\phash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ph_fft.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cimgffmpeg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\audiophash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
