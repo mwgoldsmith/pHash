@@ -89,13 +89,17 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\phcomplex.c" />
     <ClCompile Include="..\..\src\ph_fft.c" />
-    <ClCompile Include="..\..\src\pHash.cpp" />
+    <ClCompile Include="..\..\src\phash.cpp" />
+    <ClCompile Include="..\..\src\cimgffmpeg.cpp" />
+    <ClCompile Include="..\..\src\audiophash.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\pHash-config.h" />
+    <ClInclude Include="..\..\include\phashconfig.h" />
     <ClInclude Include="..\..\include\phcomplex.h" />
     <ClInclude Include="..\..\include\ph_fft.h" />
-    <ClInclude Include="..\..\include\pHash.h" />
+    <ClInclude Include="..\..\include\phash.h" />
+    <ClCompile Include="..\..\include\cimgffmpeg.h" />
+    <ClCompile Include="..\..\include\audiophash.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
