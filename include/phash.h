@@ -25,34 +25,25 @@
 #ifndef _PHASH_H
 #define _PHASH_H
 
+#include "phashconfig.h"
 
 #include <limits.h>
 #include <math.h>
 //#include <unistd.h>
-#include <errno.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <dirent.h>
-#include <mman.h>
-#include "phashconfig.h"
 
 #define __STDC_CONSTANT_MACROS
 
 #include <stdint.h>
 
-#if defined(HAVE_IMAGE_HASH) || defined(HAVE_VIDEO_HASH)
-#define cimg_debug 0
-#define cimg_display 0
+#if HAVE_IMAGE_HASH || HAVE_VIDEO_HASH
 #include "CImg.h"
-using namespace cimg_library;
-#endif
 
-#ifdef HAVE_PTHREAD
-#include <pthread.h>
+using ImgU8 = cimg_library::CImg<uint8_t>;
+using ImgFL = cimg_library::CImg<float>;
+using ImgListU8 = cimg_library::CImgList<uint8_t>;
+\
 #endif
 
 #if !defined(__GLIBC__) && !defined(_WIN32)
@@ -60,7 +51,7 @@ using namespace cimg_library;
 #include <sys/sysctl.h>
 #endif
 
-using namespace std;
+//using namespace std;
 
 #define SQRT_TWO 1.4142135623730950488016887242097
 
@@ -138,9 +129,9 @@ void ph_bmb_free(BinHash* binHash);
 
 /*! /brief Radon Projection info
  */
-#ifdef HAVE_IMAGE_HASH
+#if HAVE_IMAGE_HASH
 typedef struct ph_projections {
-    CImg<uint8_t>* R;           //contains projections of image of angled lines through center
+    ImgU8* R;           //contains projections of image of angled lines through center
     int* nb_pix_perline;        //the head of int array denoting the number of pixels of each line
     int size;                   //the size of nb_pix_perline
 } Projections;
@@ -180,7 +171,7 @@ typedef struct ph_match {
     uint32_t length;    /*length of match between 2 files */
 } TxtMatch;
 
-#ifdef HAVE_PTHREAD
+#if HAVE_PTHREAD
 int ph_num_threads();
 #endif
 
@@ -206,8 +197,8 @@ const char* ph_about();
  *  /param  projs - (out) Projections struct
  *  /return int value - less than 0 for error
  */
-#ifdef HAVE_IMAGE_HASH
-int ph_radon_projections(const CImg<uint8_t> &img, int N, Projections &projs);
+#if HAVE_IMAGE_HASH
+int ph_radon_projections(const ImgU8 &img, int N, Projections &projs);
 
 /*! /brief feature vector
  *         compute the feature vector from a radon projection map.
@@ -246,7 +237,7 @@ int ph_crosscorr(const Digest &x, const Digest &y, double &pcc, double threshold
  *  /param N      - int value for the number of angles to consider.
  *  /return       - less than 0 for error
  */
-int _ph_image_digest(const CImg<uint8_t> &img, double sigma, double gamma, Digest &digest, int N = 180);
+int _ph_image_digest(const ImgU8 &img, double sigma, double gamma, Digest &digest, int N = 180);
 
 /*! /brief image digest
  *  Compute the image digest given the file name.
@@ -269,7 +260,7 @@ int ph_image_digest(const char* file, double sigma, double gamma, Digest &digest
  *  /param theshold - double value for the threshold
  *  /return int 0 (false) for different images, 1 (true) for same image, less than 0 for error
  */
-int _ph_compare_images(const CImg<uint8_t> &imA, const CImg<uint8_t> &imB, double &pcc, double sigma = 3.5, double gamma = 1.0, int N = 180, double threshold = 0.90);
+int _ph_compare_images(const ImgU8 &imA, const ImgU8 &imB, double &pcc, double sigma = 3.5, double gamma = 1.0, int N = 180, double threshold = 0.90);
 
 /*! /brief compare 2 images
  *  Compare 2 images given the file names
@@ -288,7 +279,7 @@ int ph_compare_images(const char* file1, const char* file2, double &pcc, double 
  *  /param N - int denoting the size of the square matrix to create.
  *  /return CImg<double> size NxN containing the dct matrix
  */
-static CImg<float>* ph_dct_matrix(const int N);
+static ImgFL* ph_dct_matrix(const int N);
 
 /*! /brief compute dct robust image hash
  *  /param file string variable for name of file
@@ -301,13 +292,13 @@ int __cdecl ph_dct_imagehash(const char* file, ulong64 &hash);
 int ph_bmb_imagehash(const char* file, uint8_t method, BinHash** ret_hash);
 #endif
 
-#ifdef HAVE_PTHREAD
+#if HAVE_PTHREAD
 __declspec(dllexport)
 DP** __cdecl ph_dct_image_hashes(char* files[], int count, int threads = 0);
 #endif
 
-#ifdef HAVE_VIDEO_HASH
-static CImgList<uint8_t>* ph_getKeyFramesFromVideo(const char* filename);
+#if HAVE_VIDEO_HASH
+static ImgListU8* ph_getKeyFramesFromVideo(const char* filename);
 
 ulong64* ph_dct_videohash(const char* filename, int &Length);
 
@@ -322,7 +313,7 @@ double ph_dct_videohash_dist(ulong64* hashA, int N1, ulong64* hashB, int N2, int
  *   /param hash ulong64 value for hash value
  *   /return int value - less than 0 for error
  */
-#ifdef HAVE_IMAGE_HASH
+#if HAVE_IMAGE_HASH
 __declspec(dllexport)
 int ph_hamming_distance(const ulong64 hash1, const ulong64 hash2);
 
