@@ -38,7 +38,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <mman.h>
-#include "pHash-config.h"
+#include "phashconfig.h"
 
 #define __STDC_CONSTANT_MACROS
 
