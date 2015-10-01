@@ -21,47 +21,72 @@
     David Starkweather - dstarkweather@phash.org
 
 */
+
 #include "ph_fft.h"
+#include <malloc.h>
+#include <math.h>
 
-void fft_calc(const int N, const double* x, Complexd* X, Complexd* P, const int step, const Complexd* twids)
-{
-    int k;
-    Complexd* S = P + N / 2;
-
-    if(N == 1) {
-        X[0].re = x[0];
-        X[0].im = 0;
-        return;
-    }
-
-    fft_calc(N / 2, x,      S,   X, 2 * step, twids);
-    fft_calc(N / 2, x + step, P,   X, 2 * step, twids);
-
-    for(k = 0; k < N / 2; k++) {
-        P[k] = mult_complex(P[k], twids[k * step]);
-        X[k]     = add_complex(S[k], P[k]);
-        X[k + N / 2] = sub_complex(S[k], P[k]);
-    }
-
+_complex polar_to_complex(const double r, const double theta) {
+  _complex result;
+  result.x = r * cos(theta);
+  result.y = r * sin(theta);
+  return result;
 }
 
+_complex add_complex(const _complex a, const _complex b) {
+  _complex result;
+  result.x = a.x + b.x;
+  result.y = a.y + b.y;
+  return result;
+}
 
-int fft(const double* x, const int N, Complexd* X)
-{
+_complex sub_complex(const _complex a, const _complex b) {
+  _complex result;
+  result.x = a.x - b.x;
+  result.y = a.y - b.y;
+  return result;
+}
 
-    Complexd* twiddle_factors = (Complexd*)malloc(sizeof(Complexd) * (N / 2));
-    Complexd* Xt = (Complexd*)malloc(sizeof(Complexd) * N);
-    int k;
+_complex mult_complex(const _complex a, const _complex b) {
+  _complex result;
+  result.x = (a.x * b.x) - (a.y * b.y);
+  result.y = (a.x * b.y) + (a.y * b.x);
+  return result;
+}
 
-    for(k = 0; k < N / 2; k++) {
-        twiddle_factors[k] = polar_to_complex(1.0, 2.0 * PI * k / N);
-    }
+void fft_calc(const int N, const double* x, _complex* X, _complex* P, const int step, const _complex* twids) {
+  int k;
+  _complex* S = P + N / 2;
 
-    fft_calc(N, x, X, Xt, 1, twiddle_factors);
+  if (N == 1) {
+    X[0].x = x[0];
+    X[0].y = 0;
+    return;
+  }
 
-    free(twiddle_factors);
-    free(Xt);
+  fft_calc(N / 2, x, S, X, 2 * step, twids);
+  fft_calc(N / 2, x + step, P, X, 2 * step, twids);
 
-    return 0;
+  for (k = 0; k < N / 2; k++) {
+    P[k] = mult_complex(P[k], twids[k * step]);
+    X[k] = add_complex(S[k], P[k]);
+    X[k + N / 2] = sub_complex(S[k], P[k]);
+  }
+}
 
+int fft(const double* x, const int N, _complex* X) {
+  _complex* twiddle_factors = (_complex*)malloc(sizeof(_complex) * (N / 2));
+  _complex* Xt = (_complex*)malloc(sizeof(_complex) * N);
+  int k;
+
+  for (k = 0; k < N / 2; k++) {
+    twiddle_factors[k] = polar_to_complex(1.0, 2.0 * M_PI * k / N);
+  }
+
+  fft_calc(N, x, X, Xt, 1, twiddle_factors);
+
+  free(twiddle_factors);
+  free(Xt);
+
+  return 0;
 }

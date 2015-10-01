@@ -43,7 +43,7 @@
 using ImgU8 = cimg_library::CImg<uint8_t>;
 using ImgFL = cimg_library::CImg<float>;
 using ImgListU8 = cimg_library::CImgList<uint8_t>;
-\
+
 #endif
 
 #if !defined(__GLIBC__) && !defined(_WIN32)

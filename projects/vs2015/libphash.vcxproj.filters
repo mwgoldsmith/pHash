@@ -13,14 +13,8 @@
     <ClCompile Include="..\..\src\phash.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\phcomplex.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\phcomplex.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\phashconfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>

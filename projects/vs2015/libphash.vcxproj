@@ -98,7 +98,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\compat\;$(OutDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\compat\;$(OutDir)include;C:\projects\MediaExplorerPro\src\msvc32\include;C:\projects\MediaExplorerPro\src\thirdparty\libsndfile-1.0.25\src;C:\projects\MediaExplorerPro\src\thirdparty\libsamplerate-0.1.8\src;C:\projects\MediaExplorerPro\src\thirdparty\mpg123-1.22.4\src\libmpg123;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OpenMPSupport>
@@ -140,7 +140,8 @@
     <Lib>
       <Verbose>true</Verbose>
       <AdditionalLibraryDirectories>$(OutDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libjpeg9ad.lib;libpng16d.lib;libpthreadVC2d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
@@ -219,7 +220,6 @@
     <ClCompile Include="..\..\src\audiophash.cpp" />
     <ClCompile Include="..\..\src\cimgffmpeg.cpp" />
     <ClCompile Include="..\..\src\phash.cpp" />
-    <ClCompile Include="..\..\src\phcomplex.c" />
     <ClCompile Include="..\..\src\ph_fft.c" />
   </ItemGroup>
   <ItemGroup>
@@ -227,7 +227,6 @@
     <ClInclude Include="..\..\include\cimgffmpeg.h" />
     <ClInclude Include="..\..\include\phash.h" />
     <ClInclude Include="..\..\include\phashconfig.h" />
-    <ClInclude Include="..\..\include\phcomplex.h" />
     <ClInclude Include="..\..\include\ph_fft.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
