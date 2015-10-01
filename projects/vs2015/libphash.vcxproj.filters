@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\src\audiophash.cpp" />
+    <ClCompile Include="..\..\src\cimgffmpeg.cpp" />
+    <ClCompile Include="..\..\src\phash.cpp" />
+    <ClCompile Include="..\..\src\phcomplex.c" />
+    <ClCompile Include="..\..\src\ph_fft.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\include\audiophash.h" />
+    <ClInclude Include="..\..\include\cimgffmpeg.h" />
+    <ClInclude Include="..\..\include\phash.h" />
+    <ClInclude Include="..\..\include\phashconfig.h" />
+    <ClInclude Include="..\..\include\phcomplex.h" />
+    <ClInclude Include="..\..\include\ph_fft.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{36b36188-dd14-4b73-98cd-a6f16f10e933}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{b9c7b4f3-2e57-4aff-80ba-2679289c939c}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+  </ItemGroup>
+</Project>
