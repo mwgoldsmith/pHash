@@ -7,10 +7,10 @@
     <ClCompile Include="..\..\src\cimgffmpeg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\ph_fft.c">
+    <ClCompile Include="..\..\src\phash.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\phash.cpp">
+    <ClCompile Include="..\..\src\ph_fft.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -28,30 +28,8 @@
 
 #define M_PI 3.1415926535897932
 
-// Definition of the _complex struct to be used by those who use the complex
-// functions and want type checking.
-#ifndef _COMPLEX_DEFINED
-#define _COMPLEX_DEFINED
+struct complex;
 
-typedef struct {
-  double x, y; // real and imaginary parts
-} _complex;
-
-#if !__STDC__ && !defined __cplusplus
-// Non-ANSI name for compatibility
-#define complex _complex
-#endif
-#endif
-
-_complex polar_to_complex(const double r, const double theta);
-
-_complex add_complex(const _complex a, const _complex b);
-
-_complex sub_complex(const _complex a, const _complex b);
-
-_complex mult_complex(const _complex a, const _complex b);
-
-void fft_calc(const int N, const double* x, _complex* X, _complex* P, const int step, const _complex* twids);
-int fft(const double* x, const int N, _complex* X);
+int fft(const double* x, const int N, complex* X);
 
 #endif

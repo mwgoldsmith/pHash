@@ -220,7 +220,7 @@
     <ClCompile Include="..\..\src\audiophash.cpp" />
     <ClCompile Include="..\..\src\cimgffmpeg.cpp" />
     <ClCompile Include="..\..\src\phash.cpp" />
-    <ClCompile Include="..\..\src\ph_fft.c" />
+    <ClCompile Include="..\..\src\ph_fft.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\audiophash.h" />
