@@ -98,7 +98,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\compat\;$(OutDir)include;C:\projects\MediaExplorerPro\src\msvc32\include;C:\projects\MediaExplorerPro\src\thirdparty\libsndfile-1.0.25\src;C:\projects\MediaExplorerPro\src\thirdparty\libsamplerate-0.1.8\src;C:\projects\MediaExplorerPro\src\thirdparty\mpg123-1.22.4\src\libmpg123;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\compat\;$(OutDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OpenMPSupport>
@@ -213,7 +213,6 @@
     <Lib>
       <Verbose>true</Verbose>
       <AdditionalLibraryDirectories>$(OutDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libjpeg9a.lib;libpng16.lib;libpthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>

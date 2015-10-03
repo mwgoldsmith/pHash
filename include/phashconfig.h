@@ -1,6 +1,24 @@
 #ifndef PHASHCONFIG_H
 #define PHASHCONFIG_H
 
+#if defined(_WINDOWS) || defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__)
+#  ifndef PHASHAPI
+#    define PHASHAPI _cdecl
+#  endif
+#  if defined(PHASH_DLL_EXPORT)
+#    define PHASHEXPORT __declspec(dllexport)
+#  elif defined(PHASH_DLL_IMPORT)
+#    define PHASHEXPORT __declspec(dllimport)
+#  endif
+#endif 
+
+#ifndef PHASHAPI
+#  define PHASHAPI  
+#endif
+#ifndef PHASHEXPORT
+#  define PHASHEXPORT extern 
+#endif
+
 /* configure with audio hash */
 #define HAVE_AUDIO_HASH            0
 

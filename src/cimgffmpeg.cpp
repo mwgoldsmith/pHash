@@ -47,7 +47,7 @@ void vfinfo_close(VFInfo* vfinfo) {
   }
 }
 
-int ReadFrames(VFInfo* st_info, ImgListU8* pFrameList, long low_index, long hi_index) {
+int ReadFrames(VFInfo* st_info, cimg_library::CImgList<uint8_t>* pFrameList, long low_index, long hi_index) {
   //target pixel format
   AVPixelFormat ffmpeg_pixfmt;
   if (st_info->pixelformat == 0) {
@@ -131,7 +131,7 @@ int ReadFrames(VFInfo* st_info, ImgListU8* pFrameList, long low_index, long hi_i
 
   AVPacket packet;
   int result = 1;
-  ImgU8 next_image;
+  cimg_library::CImg<uint8_t> next_image;
   SwsContext* c = sws_getContext(st_info->pCodecCtx->width, st_info->pCodecCtx->height, st_info->pCodecCtx->pix_fmt, st_info->width, st_info->height, ffmpeg_pixfmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
   while ((result >= 0) && (size < st_info->nb_retrieval) && (st_info->current_index <= hi_index)) {
     result = av_read_frame(st_info->pFormatCtx, &packet);
@@ -191,7 +191,7 @@ int ReadFrames(VFInfo* st_info, ImgListU8* pFrameList, long low_index, long hi_i
 }
 
 
-int NextFrames(VFInfo* st_info, ImgListU8* pFrameList) {
+int NextFrames(VFInfo* st_info, cimg_library::CImgList<uint8_t>* pFrameList) {
   AVPixelFormat ffmpeg_pixfmt;
   if (st_info->pixelformat == 0) {
     ffmpeg_pixfmt = AV_PIX_FMT_GRAY8;
@@ -275,7 +275,7 @@ int NextFrames(VFInfo* st_info, ImgListU8* pFrameList) {
   int size = 0;
   AVPacket packet;
   int result = 1;
-  ImgU8 next_image;
+  cimg_library::CImg<uint8_t> next_image;
   SwsContext* c = sws_getContext(st_info->pCodecCtx->width, st_info->pCodecCtx->height, st_info->pCodecCtx->pix_fmt, st_info->width, st_info->height, ffmpeg_pixfmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
   while ((result >= 0) && (size < st_info->nb_retrieval)) {
     result = av_read_frame(st_info->pFormatCtx, &packet);
