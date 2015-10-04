@@ -47,7 +47,7 @@ void vfinfo_close(VFInfo* vfinfo) {
   }
 }
 
-int ReadFrames(VFInfo* st_info, cimg_library::CImgList<uint8_t>* pFrameList, long low_index, long hi_index) {
+int ReadFrames(VFInfo* st_info, cimg_library::CImgList<uint8_t>* pFrameList, unsigned int low_index, unsigned int hi_index) {
   //target pixel format
   AVPixelFormat ffmpeg_pixfmt;
   if (st_info->pixelformat == 0) {
