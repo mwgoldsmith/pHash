@@ -22,9 +22,11 @@
 
 */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <errno.h>
-#include "pHash.h"
+#include "phash.h"
 #include "audiophash.h"
 
 #define TRUE 1

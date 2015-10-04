@@ -22,9 +22,9 @@
 
 */
 
+#include "phash.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "pHash.h"
 
 void sort_names(char **names, int L1){
 

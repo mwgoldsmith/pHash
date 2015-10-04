@@ -22,10 +22,9 @@
 
 */
 
-
+#include "phash.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "pHash.h"
 
 int main(int argc, char **argv){
 
@@ -65,7 +64,7 @@ int main(int argc, char **argv){
     printf(" %d matches\n", count);
     printf(" indxA  indxB  length\n");
     for (j=0;j<count;j++){
-	printf(" %jd %jd %d\n", matches[j].first_index, matches[j].second_index,matches[j].length); 
+	printf(" %lld %lld %d\n", matches[j].first_index, matches[j].second_index,matches[j].length); 
     }
 
     return 0;

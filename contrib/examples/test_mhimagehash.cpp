@@ -1,7 +1,8 @@
+
+#include "phash.h"
 #include <stdio.h>
 #include <stdint.h>
 #include "math.h"
-#include "pHash.h"
 
 using namespace cimg_library;
 
@@ -66,7 +67,7 @@ int main(int argc, char **argv){
 	if (hash2 == NULL)
 	    continue;
 
-	dist = ph_hammingdistance2(hash1[i], hashlen1, hash2, hashlen2);
+	dist = ph_mh_hammingdistance(hash1[i], hashlen1, hash2, hashlen2);
 	printf("distance = %f\n", dist);
 	printf("-------------\n");
 	free(hash2);
@@ -77,7 +78,7 @@ int main(int argc, char **argv){
     printf("inter distances\n");
     for (int i=0;i<nbfiles1;i++){
 	for (int j=i+1;j<nbfiles1;j++){
-	    dist = ph_hammingdistance2(hash1[i], hashlen1, hash1[j], hashlen1);
+	    dist = ph_mh_hammingdistance(hash1[i], hashlen1, hash1[j], hashlen1);
 	    printf(" %d %d dist = %f\n", i, j, dist);
 	    printf("----------------\n");
 	}

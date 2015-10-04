@@ -22,12 +22,14 @@
 
 */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <dirent.h>
 #include <errno.h>
 #include <vector>
 #include <algorithm>
-#include "pHash.h"
+#include "phash.h"
 
 using namespace std;
 
