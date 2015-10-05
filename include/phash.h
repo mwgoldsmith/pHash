@@ -61,13 +61,13 @@ extern "C" {
 #endif
 
  /* structure for a single hash */
-typedef struct ph_datapoint {
+typedef  struct ph_datapoint {
     char* id;
     void* hash;
     float* path;
     uint32_t hash_length;
     uint8_t hash_type;
-} DP;
+  } DP;
 
 /* variables for textual hash */
 const int KgramLength = 50;

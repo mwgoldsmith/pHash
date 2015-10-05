@@ -76,7 +76,7 @@ void ph_free_datapoint(DP* dp) {
   // return;
 }
 
-char** ph_readfilenames(const char* dirname, int &count) {
+char** ph_readfilenames(const char* dirname, int& count) {
   count = 0;
   struct dirent* dir_entry;
   DIR* dir = opendir(dirname);
@@ -124,19 +124,19 @@ namespace {
 #if HAVE_PTHREAD
 #  define MAX_THREADS 10
 
-  typedef struct ph_slice {
-    DP** hash_p;
-    int n;
-    void* hash_params;
-  } slice;
+typedef struct ph_slice {
+  DP** hash_p;
+  int n;
+  void* hash_params;
+} slice;
 
-  int ph_num_threads() {
-    int numCPU;
+int ph_num_threads() {
+  int numCPU;
 #ifdef _WIN32
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
+  SYSTEM_INFO sysinfo;
+  GetSystemInfo(&sysinfo);
 
-    numCPU = sysinfo.dwNumberOfProcessors;
+  numCPU = sysinfo.dwNumberOfProcessors;
 #elif __GLIBC__
     numCPU = sysconf(_SC_NPROCESSORS_ONLN);
 #else
@@ -158,96 +158,96 @@ namespace {
     }
 
 #endif
-    return numCPU;
-  }
+  return numCPU;
+}
 
 #endif /* HAVE_PTHREAD */
 
 #if HAVE_IMAGE_HASH
 #  define SQRT_TWO 1.4142135623730950488016887242097
 
-  /** feature vector info */
-  typedef struct ph_feature_vector {
-    double* features;           //the head of the feature array of double's
-    int size;                   //the size of the feature array
-  } Features;
+/** feature vector info */
+typedef struct ph_feature_vector {
+  double* features; //the head of the feature array of double's
+  int size; //the size of the feature array
+} Features;
 
-  /** Radon Projection info */
-  typedef struct ph_projections {
-    cimg_library::CImg<uint8_t>* R;           //contains projections of image of angled lines through center
-    int* nb_pix_perline;        //the head of int array denoting the number of pixels of each line
-    int size;                   //the size of nb_pix_perline
-  } Projections;
+/** Radon Projection info */
+typedef struct ph_projections {
+  cimg_library::CImg<uint8_t>* R; //contains projections of image of angled lines through center
+  int* nb_pix_perline; //the head of int array denoting the number of pixels of each line
+  int size; //the size of nb_pix_perline
+} Projections;
 
-  cimg_library::CImg<float>* get_mh_kernel(float alpha, float level) {
-    int sigma = static_cast<int>(4 * pow(alpha, level));
-    static cimg_library::CImg<float>* pkernel = nullptr;
-    float xpos, ypos, A;
+cimg_library::CImg<float>* get_mh_kernel(float alpha, float level) {
+  int sigma = static_cast<int>(4 * pow(alpha, level));
+  static cimg_library::CImg<float>* pkernel = nullptr;
+  float xpos, ypos, A;
 
-    if (!pkernel) {
-      pkernel = new cimg_library::CImg<float>(2 * sigma + 1, 2 * sigma + 1, 1, 1, 0);
-      cimg_forXY(*pkernel, X, Y) {
-        xpos = pow(alpha, -level) * (X - sigma);
-        ypos = pow(alpha, -level) * (Y - sigma);
-        A = xpos * xpos + ypos * ypos;
-        pkernel->atXY(X, Y) = (2 - A) * exp(-A / 2);
-      }
+  if (!pkernel) {
+    pkernel = new cimg_library::CImg<float>(2 * sigma + 1, 2 * sigma + 1, 1, 1, 0);
+    cimg_forXY(*pkernel, X, Y) {
+      xpos = pow(alpha, -level) * (X - sigma);
+      ypos = pow(alpha, -level) * (Y - sigma);
+      A = xpos * xpos + ypos * ypos;
+      pkernel->atXY(X, Y) = (2 - A) * exp(-A / 2);
     }
-
-    return pkernel;
   }
 
-  /*! /brief dct
+  return pkernel;
+}
+
+/*! /brief dct
   *  Compute the dct of a given vector
   *  /param R - vector of input series
   *  /param D - (out) the dct of R
   *  /return  int value - less than 0 for error
   */
-  int ph_dct(const Features &fv, Digest &digest) {
-    int N = fv.size;
-    const int nb_coeffs = 40;
+int ph_dct(const Features& fv, Digest& digest) {
+  int N = fv.size;
+  const int nb_coeffs = 40;
 
-    digest.coeffs = static_cast<uint8_t*>(malloc(nb_coeffs * sizeof(uint8_t)));
+  digest.coeffs = static_cast<uint8_t*>(malloc(nb_coeffs * sizeof(uint8_t)));
 
-    if (!digest.coeffs)
-      return EXIT_FAILURE;
+  if (!digest.coeffs)
+    return EXIT_FAILURE;
 
-    digest.size = nb_coeffs;
-    double* R = fv.features;
-    uint8_t* D = digest.coeffs;
-    double D_temp[nb_coeffs];
-    double max = 0.0;
-    double min = 0.0;
+  digest.size = nb_coeffs;
+  double* R = fv.features;
+  uint8_t* D = digest.coeffs;
+  double D_temp[nb_coeffs];
+  double max = 0.0;
+  double min = 0.0;
 
-    for (int k = 0; k < nb_coeffs; k++) {
-      double sum = 0.0;
+  for (int k = 0; k < nb_coeffs; k++) {
+    double sum = 0.0;
 
-      for (int n = 0; n < N; n++) {
-        double temp = R[n] * cos((cimg_library::cimg::PI * (2 * n + 1) * k) / (2 * N));
-        sum += temp;
-      }
-
-      if (k == 0) {
-        D_temp[k] = sum / sqrt(static_cast<double>(N));
-      } else {
-        D_temp[k] = sum * SQRT_TWO / sqrt(static_cast<double>(N));
-      }
-
-      if (D_temp[k] > max)
-        max = D_temp[k];
-
-      if (D_temp[k] < min)
-        min = D_temp[k];
+    for (int n = 0; n < N; n++) {
+      double temp = R[n] * cos((cimg_library::cimg::PI * (2 * n + 1) * k) / (2 * N));
+      sum += temp;
     }
 
-    for (int i = 0; i < nb_coeffs; i++) {
-      D[i] = static_cast<uint8_t>(UCHAR_MAX * (D_temp[i] - min) / (max - min));
+    if (k == 0) {
+      D_temp[k] = sum / sqrt(static_cast<double>(N));
+    } else {
+      D_temp[k] = sum * SQRT_TWO / sqrt(static_cast<double>(N));
     }
 
-    return EXIT_SUCCESS;
+    if (D_temp[k] > max)
+      max = D_temp[k];
+
+    if (D_temp[k] < min)
+      min = D_temp[k];
   }
 
-  /*! /brief radon function
+  for (int i = 0; i < nb_coeffs; i++) {
+    D[i] = static_cast<uint8_t>(UCHAR_MAX * (D_temp[i] - min) / (max - min));
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/*! /brief radon function
   *  Find radon projections of N lines running through the image center for lines angled 0
   *  to 180 degrees from horizontal.
   *  /param img - CImg src image
@@ -255,125 +255,125 @@ namespace {
   *  /param  projs - (out) Projections struct
   *  /return int value - less than 0 for error
   */
-  int ph_radon_projections(const cimg_library::CImg<uint8_t> &img, int N, Projections &projs) {
-    int width = img.width();
-    int height = img.height();
-    int D = (width > height) ? width : height;
-    float x_center = width / 2.0F;
-    float y_center = height / 2.0F;
-    int x_off = static_cast<int>(floor(x_center + static_cast<float>(ROUNDING_FACTOR(x_center))));
-    int y_off = static_cast<int>(floor(y_center + static_cast<float>(ROUNDING_FACTOR(y_center))));
+int ph_radon_projections(const cimg_library::CImg<uint8_t>& img, int N, Projections& projs) {
+  int width = img.width();
+  int height = img.height();
+  int D = (width > height) ? width : height;
+  float x_center = width / 2.0F;
+  float y_center = height / 2.0F;
+  int x_off = static_cast<int>(floor(x_center + static_cast<float>(ROUNDING_FACTOR(x_center))));
+  int y_off = static_cast<int>(floor(y_center + static_cast<float>(ROUNDING_FACTOR(y_center))));
 
-    projs.R = new cimg_library::CImg<uint8_t>(N, D, 1, 1, 0);
-    projs.nb_pix_perline = static_cast<int*>(calloc(N, sizeof(int)));
+  projs.R = new cimg_library::CImg<uint8_t>(N, D, 1, 1, 0);
+  projs.nb_pix_perline = static_cast<int*>(calloc(N, sizeof(int)));
 
-    if (!projs.R || !projs.nb_pix_perline)
-      return EXIT_FAILURE;
+  if (!projs.R || !projs.nb_pix_perline)
+    return EXIT_FAILURE;
 
-    projs.size = N;
+  projs.size = N;
 
-    cimg_library::CImg<uint8_t>* ptr_radon_map = projs.R;
-    int* nb_per_line = projs.nb_pix_perline;
+  cimg_library::CImg<uint8_t>* ptr_radon_map = projs.R;
+  int* nb_per_line = projs.nb_pix_perline;
 
-    for (int k = 0; k < N / 4 + 1; k++) {
-      double theta = k * cimg_library::cimg::PI / N;
-      double alpha = std::tan(theta);
+  for (int k = 0; k < N / 4 + 1; k++) {
+    double theta = k * cimg_library::cimg::PI / N;
+    double alpha = std::tan(theta);
 
-      for (int x = 0; x < D; x++) {
-        double y = alpha * (x - x_off);
-        int yd = static_cast<int>(floor(y + static_cast<float>(ROUNDING_FACTOR(y))));
-        if ((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
-          *ptr_radon_map->data(k, x) = img(x, yd + y_off);
-          nb_per_line[k] += 1;
-        }
-
-        if ((yd + x_off >= 0) && (yd + x_off < width) && (k != N / 4) && (x < height)) {
-          *ptr_radon_map->data(N / 2 - k, x) = img(yd + x_off, x);
-          nb_per_line[N / 2 - k] += 1;
-        }
-      }
-    }
-
-    int j = 0;
-
-    for (int k = 3 * N / 4; k < N; k++) {
-      double theta = k * cimg_library::cimg::PI / N;
-      double alpha = std::tan(theta);
-
-      for (int x = 0; x < D; x++) {
-        double y = alpha * (x - x_off);
-        int yd = static_cast<int>(floor(y + static_cast<float>(ROUNDING_FACTOR(y))));
-        if ((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
-          *ptr_radon_map->data(k, x) = img(x, yd + y_off);
-          nb_per_line[k] += 1;
-        }
-
-        if ((y_off - yd >= 0) && (y_off - yd < width) && (2 * y_off - x >= 0) && (2 * y_off - x < height) && (k != 3 * N / 4)) {
-          *ptr_radon_map->data(k - j, x) = img(-yd + y_off, -(x - y_off) + y_off);
-          nb_per_line[k - j] += 1;
-        }
-
+    for (int x = 0; x < D; x++) {
+      double y = alpha * (x - x_off);
+      int yd = static_cast<int>(floor(y + static_cast<float>(ROUNDING_FACTOR(y))));
+      if ((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
+        *ptr_radon_map->data(k, x) = img(x, yd + y_off);
+        nb_per_line[k] += 1;
       }
 
-      j += 2;
+      if ((yd + x_off >= 0) && (yd + x_off < width) && (k != N / 4) && (x < height)) {
+        *ptr_radon_map->data(N / 2 - k, x) = img(yd + x_off, x);
+        nb_per_line[N / 2 - k] += 1;
+      }
     }
-
-    return EXIT_SUCCESS;
   }
 
-  /*! /brief feature vector
+  int j = 0;
+
+  for (int k = 3 * N / 4; k < N; k++) {
+    double theta = k * cimg_library::cimg::PI / N;
+    double alpha = std::tan(theta);
+
+    for (int x = 0; x < D; x++) {
+      double y = alpha * (x - x_off);
+      int yd = static_cast<int>(floor(y + static_cast<float>(ROUNDING_FACTOR(y))));
+      if ((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
+        *ptr_radon_map->data(k, x) = img(x, yd + y_off);
+        nb_per_line[k] += 1;
+      }
+
+      if ((y_off - yd >= 0) && (y_off - yd < width) && (2 * y_off - x >= 0) && (2 * y_off - x < height) && (k != 3 * N / 4)) {
+        *ptr_radon_map->data(k - j, x) = img(-yd + y_off, -(x - y_off) + y_off);
+        nb_per_line[k - j] += 1;
+      }
+
+    }
+
+    j += 2;
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/*! /brief feature vector
   *         compute the feature vector from a radon projection map.
   *  /param  projs - Projections struct
   *  /param  fv    - (out) Features struct
   *  /return int value - less than 0 for error
   */
-  int ph_feature_vector(const Projections &projs, Features &fv) {
-    cimg_library::CImg<uint8_t>* ptr_map = projs.R;
-    cimg_library::CImg<uint8_t> projection_map = *ptr_map;
-    int* nb_perline = projs.nb_pix_perline;
-    int N = projs.size;
-    int D = projection_map.height();
+int ph_feature_vector(const Projections& projs, Features& fv) {
+  cimg_library::CImg<uint8_t>* ptr_map = projs.R;
+  cimg_library::CImg<uint8_t> projection_map = *ptr_map;
+  int* nb_perline = projs.nb_pix_perline;
+  int N = projs.size;
+  int D = projection_map.height();
 
-    fv.features = static_cast<double*>(malloc(N * sizeof(double)));
-    fv.size = N;
+  fv.features = static_cast<double*>(malloc(N * sizeof(double)));
+  fv.size = N;
 
-    if (!fv.features)
-      return EXIT_FAILURE;
+  if (!fv.features)
+    return EXIT_FAILURE;
 
-    double* feat_v = fv.features;
-    double sum = 0.0;
-    double sum_sqd = 0.0;
+  double* feat_v = fv.features;
+  double sum = 0.0;
+  double sum_sqd = 0.0;
 
-    for (int k = 0; k < N; k++) {
-      double line_sum = 0.0;
-      double line_sum_sqd = 0.0;
-      int nb_pixels = nb_perline[k];
+  for (int k = 0; k < N; k++) {
+    double line_sum = 0.0;
+    double line_sum_sqd = 0.0;
+    int nb_pixels = nb_perline[k];
 
-      for (int i = 0; i < D; i++) {
-        line_sum += projection_map(k, i);
-        line_sum_sqd += projection_map(k, i) * projection_map(k, i);
-      }
-
-      feat_v[k] = (line_sum_sqd / nb_pixels) - (line_sum * line_sum) / (nb_pixels * nb_pixels);
-      sum += feat_v[k];
-      sum_sqd += feat_v[k] * feat_v[k];
+    for (int i = 0; i < D; i++) {
+      line_sum += projection_map(k, i);
+      line_sum_sqd += projection_map(k, i) * projection_map(k, i);
     }
 
-    double mean = sum / N;
-    double var = sqrt((sum_sqd / N) - (sum * sum) / (N * N));
-
-    for (int i = 0; i < N; i++) {
-      feat_v[i] = (feat_v[i] - mean) / var;
-    }
-
-    return EXIT_SUCCESS;
+    feat_v[k] = (line_sum_sqd / nb_pixels) - (line_sum * line_sum) / (nb_pixels * nb_pixels);
+    sum += feat_v[k];
+    sum_sqd += feat_v[k] * feat_v[k];
   }
+
+  double mean = sum / N;
+  double var = sqrt((sum_sqd / N) - (sum * sum) / (N * N));
+
+  for (int i = 0; i < N; i++) {
+    feat_v[i] = (feat_v[i] - mean) / var;
+  }
+
+  return EXIT_SUCCESS;
+}
 
 #ifdef max
 #undef max
 #endif
 
-  /*! /brief image digest
+/*! /brief image digest
   *  Compute the image digest for an image given the input image
   *  /param img - CImg object representing an input image
   *  /param sigma - double value for the deviation for a gaussian filter function
@@ -382,45 +382,45 @@ namespace {
   *  /param N      - int value for the number of angles to consider.
   *  /return       - less than 0 for error
   */
-  int _ph_image_digest(const cimg_library::CImg<uint8_t> &img, double sigma, double gamma, Digest &digest, int N) {
-    int result = EXIT_FAILURE;
-    cimg_library::CImg<uint8_t> graysc;
+int _ph_image_digest(const cimg_library::CImg<uint8_t>& img, double sigma, double gamma, Digest& digest, int N) {
+  int result = EXIT_FAILURE;
+  cimg_library::CImg<uint8_t> graysc;
 
-    if (img.spectrum() >= 3) {
-      graysc = img.get_RGBtoYCbCr().channel(0);
-    } else if (img.spectrum() == 1) {
-      graysc = img;
-    } else {
-      return result;
-    }
-
-    graysc.blur(static_cast<float>(sigma));
-
-    (graysc / graysc.max()).pow(gamma);
-
-    Features features;
-    Projections projs;
-
-    if (ph_radon_projections(graysc, N, projs) < 0)
-      goto cleanup;
-
-    if (ph_feature_vector(projs, features) < 0)
-      goto cleanup;
-
-    if (ph_dct(features, digest) < 0)
-      goto cleanup;
-
-    result = EXIT_SUCCESS;
-
-  cleanup:
-    free(projs.nb_pix_perline);
-    free(features.features);
-
-    delete projs.R;
+  if (img.spectrum() >= 3) {
+    graysc = img.get_RGBtoYCbCr().channel(0);
+  } else if (img.spectrum() == 1) {
+    graysc = img;
+  } else {
     return result;
   }
 
-  /*! /brief compare 2 images
+  graysc.blur(static_cast<float>(sigma));
+
+  (graysc / graysc.max()).pow(gamma);
+
+  Features features;
+  Projections projs;
+
+  if (ph_radon_projections(graysc, N, projs) < 0)
+    goto cleanup;
+
+  if (ph_feature_vector(projs, features) < 0)
+    goto cleanup;
+
+  if (ph_dct(features, digest) < 0)
+    goto cleanup;
+
+  result = EXIT_SUCCESS;
+
+cleanup:
+  free(projs.nb_pix_perline);
+  free(features.features);
+
+  delete projs.R;
+  return result;
+}
+
+/*! /brief compare 2 images
   *  /param imA - CImg object of first image
   *  /param imB - CImg object of second image
   *  /param pcc   - (out) double value for peak of cross correlation
@@ -430,276 +430,276 @@ namespace {
   *  /param theshold - double value for the threshold
   *  /return int 0 (false) for different images, 1 (true) for same image, less than 0 for error
   */
-  int _ph_compare_images(const cimg_library::CImg<uint8_t> &imA, const cimg_library::CImg<uint8_t> &imB, double &pcc, double sigma, double gamma, int N, double threshold) {
-    int result = 0;
-    Digest digestA;
-    Digest digestB;
+int _ph_compare_images(const cimg_library::CImg<uint8_t>& imA, const cimg_library::CImg<uint8_t>& imB, double& pcc, double sigma, double gamma, int N, double threshold) {
+  int result = 0;
+  Digest digestA;
+  Digest digestB;
 
-    if (_ph_image_digest(imA, sigma, gamma, digestA, N) < 0)
-      goto cleanup;
+  if (_ph_image_digest(imA, sigma, gamma, digestA, N) < 0)
+    goto cleanup;
 
-    if (_ph_image_digest(imB, sigma, gamma, digestB, N) < 0)
-      goto cleanup;
+  if (_ph_image_digest(imB, sigma, gamma, digestB, N) < 0)
+    goto cleanup;
 
-    if (ph_crosscorr(digestA, digestB, pcc, threshold) < 0)
-      goto cleanup;
+  if (ph_crosscorr(digestA, digestB, pcc, threshold) < 0)
+    goto cleanup;
 
-    if (pcc > threshold)
-      result = 1;
+  if (pcc > threshold)
+    result = 1;
 
-  cleanup:
+cleanup:
 
-    free(digestA.coeffs);
-    free(digestB.coeffs);
-    return result;
-  }
+  free(digestA.coeffs);
+  free(digestB.coeffs);
+  return result;
+}
 
-  /** /brief count number bits set in given byte
+/** /brief count number bits set in given byte
   *   /param val - uint8_t byte value
   *   /return int value for number of bits set
   **/
-  int ph_bitcount8(uint8_t val) {
-    int num = 0;
+int ph_bitcount8(uint8_t val) {
+  int num = 0;
 
-    while (val) {
-      ++num;
-      val &= val - 1;
-    }
-
-    return num;
+  while (val) {
+    ++num;
+    val &= val - 1;
   }
 
-  /*! /brief return dct matrix, C
+  return num;
+}
+
+/*! /brief return dct matrix, C
   *  Return DCT matrix of sqare size, N
   *  /param N - int denoting the size of the square matrix to create.
   *  /return CImg<double> size NxN containing the dct matrix
   */
-  cimg_library::CImg<float>* ph_dct_matrix(const int N) {
-    cimg_library::CImg<float>* ptr_matrix = new cimg_library::CImg<float>(N, N, 1, 1, 1 / sqrt(static_cast<float>(N)));
-    const float c1 = sqrt(2.0F / N);
-    const float p = static_cast<const float>(cimg_library::cimg::PI);
-    for (int x = 0; x < N; x++) {
-      for (int y = 1; y < N; y++) {
-        *ptr_matrix->data(x, y) = c1 * cos(p / 2.0F / N * y * (2.0F * x + 1.0F));
-      }
+cimg_library::CImg<float>* ph_dct_matrix(const int N) {
+  cimg_library::CImg<float>* ptr_matrix = new cimg_library::CImg<float>(N, N, 1, 1, 1 / sqrt(static_cast<float>(N)));
+  const float c1 = sqrt(2.0F / N);
+  const float p = static_cast<const float>(cimg_library::cimg::PI);
+  for (int x = 0; x < N; x++) {
+    for (int y = 1; y < N; y++) {
+      *ptr_matrix->data(x, y) = c1 * cos(p / 2.0F / N * y * (2.0F * x + 1.0F));
     }
-
-    return ptr_matrix;
   }
 
+  return ptr_matrix;
+}
+
 #if HAVE_VIDEO_HASH
-  cimg_library::CImgList<uint8_t>* get_video_key_frames(const char* filename) {
-    int64_t N = GetNumberVideoFrames(filename);
+cimg_library::CImgList<uint8_t>* get_video_key_frames(const char* filename) {
+  int64_t N = GetNumberVideoFrames(filename);
 
-    if (N < 0) {
-      return nullptr;
-    }
+  if (N < 0) {
+    return nullptr;
+  }
 
-    float frames_per_sec = 0.5F * fps(filename);
+  float frames_per_sec = 0.5F * fps(filename);
 
-    if (frames_per_sec < 0) {
-      return nullptr;
-    }
+  if (frames_per_sec < 0) {
+    return nullptr;
+  }
 
-    int step = static_cast<int>(frames_per_sec + ROUNDING_FACTOR(frames_per_sec));
-    long nbframes = static_cast<long>(N / step);
+  int step = static_cast<int>(frames_per_sec + ROUNDING_FACTOR(frames_per_sec));
+  long nbframes = static_cast<long>(N / step);
 
-    float* dist = static_cast<float*>(malloc((nbframes)* sizeof(float)));
+  float* dist = static_cast<float*>(malloc((nbframes) * sizeof(float)));
 
-    if (!dist) {
-      return nullptr;
-    }
+  if (!dist) {
+    return nullptr;
+  }
 
-    cimg_library::CImg<float> prev(64, 1, 1, 1, 0);
+  cimg_library::CImg<float> prev(64, 1, 1, 1, 0);
 
-    VFInfo st_info;
-    st_info.filename = filename;
-    st_info.nb_retrieval = 100;
-    st_info.step = step;
-    st_info.pixelformat = 0;
-    st_info.pFormatCtx = nullptr;
-    st_info.width = -1;
-    st_info.height = -1;
+  VFInfo st_info;
+  st_info.filename = filename;
+  st_info.nb_retrieval = 100;
+  st_info.step = step;
+  st_info.pixelformat = 0;
+  st_info.pFormatCtx = nullptr;
+  st_info.width = -1;
+  st_info.height = -1;
 
-    cimg_library::CImgList<uint8_t>* pframelist = new cimg_library::CImgList<uint8_t>();
+  cimg_library::CImgList<uint8_t>* pframelist = new cimg_library::CImgList<uint8_t>();
 
-    if (!pframelist) {
-      return nullptr;
-    }
+  if (!pframelist) {
+    return nullptr;
+  }
 
-    int nbread;
-    int k = 0;
+  int nbread;
+  int k = 0;
 
-    do {
-      nbread = NextFrames(&st_info, pframelist);
+  do {
+    nbread = NextFrames(&st_info, pframelist);
 
-      if (nbread < 0) {
-        delete pframelist;
-        free(dist);
-        return nullptr;
-      }
-
-      unsigned int i = 0;
-
-      while ((i < pframelist->size()) && (k < nbframes)) {
-        cimg_library::CImg<uint8_t> current = pframelist->at(i++);
-        cimg_library::CImg<float> hist = current.get_histogram(64, 0, 255);
-        float d;
-        dist[k] = 0.0;
-        cimg_forX(hist, X) {
-          d = hist(X) - prev(X);
-          d = (d >= 0) ? d : -d;
-          dist[k] += d;
-          prev(X) = hist(X);
-        }
-        k++;
-      }
-
-      pframelist->clear();
-    } while ((nbread >= st_info.nb_retrieval) && (k < nbframes));
-
-    vfinfo_close(&st_info);
-
-    int S = 10;
-    int L = 50;
-    int alpha1 = 3;
-    int alpha2 = 2;
-    int s_begin, s_end;
-    int l_begin, l_end;
-    uint8_t* bnds = static_cast<uint8_t*>(malloc(nbframes * sizeof(uint8_t)));
-
-    if (!bnds) {
+    if (nbread < 0) {
       delete pframelist;
       free(dist);
       return nullptr;
     }
 
-    int nbboundaries = 0;
-    k = 1;
-    bnds[0] = 1;
+    unsigned int i = 0;
 
-    do {
-      s_begin = (k - S >= 0) ? k - S : 0;
-      s_end = (k + S < nbframes) ? k + S : nbframes - 1;
-      l_begin = (k - L >= 0) ? k - L : 0;
-      l_end = (k + L < nbframes) ? k + L : nbframes - 1;
-
-      /* get global average */
-      float ave_global, sum_global = 0.0, dev_global = 0.0;
-
-      for (int i = l_begin; i <= l_end; i++) {
-        sum_global += dist[i];
+    while ((i < pframelist->size()) && (k < nbframes)) {
+      cimg_library::CImg<uint8_t> current = pframelist->at(i++);
+      cimg_library::CImg<float> hist = current.get_histogram(64, 0, 255);
+      float d;
+      dist[k] = 0.0;
+      cimg_forX(hist, X) {
+        d = hist(X) - prev(X);
+        d = (d >= 0) ? d : -d;
+        dist[k] += d;
+        prev(X) = hist(X);
       }
-
-      ave_global = sum_global / static_cast<float>(l_end - l_begin + 1);
-
-      /*get global deviation */
-      for (int i = l_begin; i <= l_end; i++) {
-        float dev = ave_global - dist[i];
-        dev = (dev >= 0) ? dev : -1 * dev;
-        dev_global += dev;
-      }
-
-      dev_global = dev_global / static_cast<float>(l_end - l_begin + 1);
-
-      /* global threshold */
-      float T_global = ave_global + alpha1 * dev_global;
-
-      /* get local maximum */
-      int localmaxpos = s_begin;
-
-      for (int i = s_begin; i <= s_end; i++) {
-        if (dist[i] > dist[localmaxpos])
-          localmaxpos = i;
-      }
-
-      /* get 2nd local maximum */
-      int localmaxpos2 = s_begin;
-      float localmax2 = 0;
-
-      for (int i = s_begin; i <= s_end; i++) {
-        if (i == localmaxpos)
-          continue;
-
-        if (dist[i] > localmax2) {
-          localmaxpos2 = i;
-          localmax2 = dist[i];
-        }
-      }
-
-      float T_local = alpha2 * dist[localmaxpos2];
-      float Thresh = (T_global >= T_local) ? T_global : T_local;
-
-      if ((dist[k] == dist[localmaxpos]) && (dist[k] > Thresh)) {
-        bnds[k] = 1;
-        nbboundaries++;
-      } else {
-        bnds[k] = 0;
-      }
-
       k++;
-    } while (k < nbframes - 1);
+    }
 
-    bnds[nbframes - 1] = 1;
-    //  nbboundaries += 2;
+    pframelist->clear();
+  } while ((nbread >= st_info.nb_retrieval) && (k < nbframes));
 
-    int start = 0;
-    int end = 0;
-    int nbselectedframes = 0;
+  vfinfo_close(&st_info);
 
-    do {
-      /* find next boundary */
-      do {
-        end++;
-      } while ((bnds[end] != 1) && (end < nbframes));
+  int S = 10;
+  int L = 50;
+  int alpha1 = 3;
+  int alpha2 = 2;
+  int s_begin, s_end;
+  int l_begin, l_end;
+  uint8_t* bnds = static_cast<uint8_t*>(malloc(nbframes * sizeof(uint8_t)));
 
-      /* find min disparity within bounds */
-      int minpos = start + 1;
-
-      for (int i = start + 1; i < end; i++) {
-        if (dist[i] < dist[minpos])
-          minpos = i;
-      }
-
-      bnds[minpos] = 2;
-      nbselectedframes++;
-      start = end;
-    } while (start < nbframes - 1);
-
-    st_info.nb_retrieval = 1;
-    st_info.width = 32;
-    st_info.height = 32;
-    k = 0;
-
-    do {
-      if (bnds[k] == 2) {
-        if (ReadFrames(&st_info, pframelist, k * st_info.step, k * st_info.step + 1) < 0) {
-          delete pframelist;
-          free(dist);
-          return nullptr;
-        }
-      }
-
-      k++;
-    } while (k < nbframes);
-
-    vfinfo_close(&st_info);
-
-    free(bnds);
-    // bnds = nullptr;
+  if (!bnds) {
+    delete pframelist;
     free(dist);
-    // dist = nullptr;
-
-    return pframelist;
+    return nullptr;
   }
 
-  inline constexpr int matrix_size(int zx, int zy) {
-    return (((zx)+1) * ((zy)+1));
-  }
+  int nbboundaries = 0;
+  k = 1;
+  bnds[0] = 1;
 
-  inline constexpr int matrix_pos(int zx, int x, int y) {
-    return ((x)*(((zx)+1) + (y)));
-  }
+  do {
+    s_begin = (k - S >= 0) ? k - S : 0;
+    s_end = (k + S < nbframes) ? k + S : nbframes - 1;
+    l_begin = (k - L >= 0) ? k - L : 0;
+    l_end = (k + L < nbframes) ? k + L : nbframes - 1;
+
+    /* get global average */
+    float ave_global, sum_global = 0.0, dev_global = 0.0;
+
+    for (int i = l_begin; i <= l_end; i++) {
+      sum_global += dist[i];
+    }
+
+    ave_global = sum_global / static_cast<float>(l_end - l_begin + 1);
+
+    /*get global deviation */
+    for (int i = l_begin; i <= l_end; i++) {
+      float dev = ave_global - dist[i];
+      dev = (dev >= 0) ? dev : -1 * dev;
+      dev_global += dev;
+    }
+
+    dev_global = dev_global / static_cast<float>(l_end - l_begin + 1);
+
+    /* global threshold */
+    float T_global = ave_global + alpha1 * dev_global;
+
+    /* get local maximum */
+    int localmaxpos = s_begin;
+
+    for (int i = s_begin; i <= s_end; i++) {
+      if (dist[i] > dist[localmaxpos])
+        localmaxpos = i;
+    }
+
+    /* get 2nd local maximum */
+    int localmaxpos2 = s_begin;
+    float localmax2 = 0;
+
+    for (int i = s_begin; i <= s_end; i++) {
+      if (i == localmaxpos)
+        continue;
+
+      if (dist[i] > localmax2) {
+        localmaxpos2 = i;
+        localmax2 = dist[i];
+      }
+    }
+
+    float T_local = alpha2 * dist[localmaxpos2];
+    float Thresh = (T_global >= T_local) ? T_global : T_local;
+
+    if ((dist[k] == dist[localmaxpos]) && (dist[k] > Thresh)) {
+      bnds[k] = 1;
+      nbboundaries++;
+    } else {
+      bnds[k] = 0;
+    }
+
+    k++;
+  } while (k < nbframes - 1);
+
+  bnds[nbframes - 1] = 1;
+  //  nbboundaries += 2;
+
+  int start = 0;
+  int end = 0;
+  int nbselectedframes = 0;
+
+  do {
+    /* find next boundary */
+    do {
+      end++;
+    } while ((bnds[end] != 1) && (end < nbframes));
+
+    /* find min disparity within bounds */
+    int minpos = start + 1;
+
+    for (int i = start + 1; i < end; i++) {
+      if (dist[i] < dist[minpos])
+        minpos = i;
+    }
+
+    bnds[minpos] = 2;
+    nbselectedframes++;
+    start = end;
+  } while (start < nbframes - 1);
+
+  st_info.nb_retrieval = 1;
+  st_info.width = 32;
+  st_info.height = 32;
+  k = 0;
+
+  do {
+    if (bnds[k] == 2) {
+      if (ReadFrames(&st_info, pframelist, k * st_info.step, k * st_info.step + 1) < 0) {
+        delete pframelist;
+        free(dist);
+        return nullptr;
+      }
+    }
+
+    k++;
+  } while (k < nbframes);
+
+  vfinfo_close(&st_info);
+
+  free(bnds);
+  // bnds = nullptr;
+  free(dist);
+  // dist = nullptr;
+
+  return pframelist;
+}
+
+inline constexpr int matrix_size(int zx, int zy) {
+  return (((zx) + 1) * ((zy) + 1));
+}
+
+inline constexpr int matrix_pos(int zx, int x, int y) {
+  return ((x) * (((zx) + 1) + (y)));
+}
 
 #endif /* HAVE_VIDEO_HASH */
 
@@ -708,7 +708,7 @@ namespace {
 
 #if HAVE_IMAGE_HASH
 
-int ph_crosscorr(const Digest &x, const Digest &y, double &pcc, double threshold) {
+int ph_crosscorr(const Digest& x, const Digest& y, double& pcc, double threshold) {
   int N = y.size;
   int result = 0;
 
@@ -754,13 +754,13 @@ int ph_crosscorr(const Digest &x, const Digest &y, double &pcc, double threshold
   return result;
 }
 
-int ph_image_digest(const char* file, double sigma, double gamma, Digest &digest, int N) {
+int ph_image_digest(const char* file, double sigma, double gamma, Digest& digest, int N) {
   cimg_library::CImg<uint8_t> src(file);
   int res = _ph_image_digest(src, sigma, gamma, digest, N);
   return res;
 }
 
-int ph_compare_images(const char* file1, const char* file2, double &pcc, double sigma, double gamma, int N, double threshold) {
+int ph_compare_images(const char* file1, const char* file2, double& pcc, double sigma, double gamma, int N, double threshold) {
   cimg_library::CImg<uint8_t>* imA = new cimg_library::CImg<uint8_t>(file1);
   cimg_library::CImg<uint8_t>* imB = new cimg_library::CImg<uint8_t>(file2);
 
@@ -771,7 +771,7 @@ int ph_compare_images(const char* file1, const char* file2, double &pcc, double 
   return res;
 }
 
-int ph_dct_imagehash(const char* file, ulong64 &hash) {
+int ph_dct_imagehash(const char* file, ulong64& hash) {
   if (!file) {
     return -1;
   }
@@ -836,7 +836,7 @@ int ph_hamming_distance(const ulong64 hash1, const ulong64 hash2) {
   return (x * h01) >> 56;
 }
 
-uint8_t* ph_mh_imagehash(const char* filename, int &N, float alpha, float lvl) {
+uint8_t* ph_mh_imagehash(const char* filename, int& N, float alpha, float lvl) {
   if (filename == nullptr) {
     return nullptr;
   }
@@ -996,9 +996,9 @@ DP** ph_dct_image_hashes(char* files[], int count, int threads) {
 
 #endif /* HAVE_PTHREAD */
 
-#if HAVE_VIDEO_HASH  
+#if HAVE_VIDEO_HASH 
 
-ulong64* ph_dct_videohash(const char* filename, int &length) {
+ulong64* ph_dct_videohash(const char* filename, int& length) {
   cimg_library::CImgList<uint8_t>* keyframes = get_video_key_frames(filename);
   if (keyframes == nullptr) {
     length = 0;
@@ -1017,7 +1017,7 @@ ulong64* ph_dct_videohash(const char* filename, int &length) {
   for (unsigned int i = 0; i < keyframes->size(); i++) {
     currentframe = keyframes->at(i);
     currentframe.blur(1.0);
-    dctImage = (*C) * (currentframe)* Ctransp;
+    dctImage = (*C) * (currentframe) * Ctransp;
     subsec = dctImage.crop(1, 1, 8, 8).unroll('x');
     float med = subsec.median();
     hash[i] = 0x0000000000000000;
@@ -1064,9 +1064,9 @@ double ph_dct_videohash_dist(ulong64* hashA, int N1, ulong64* hashB, int N2, int
       } else {
         // C[i][j] = ((C[i - 1][j] >= C[i][j - 1])) ? C[i - 1][j] : C[i][j - 1];
         m[matrix_pos(N1, i, j)] =
-          ((m[matrix_pos(N1, i - 1, j)] >= m[matrix_pos(N1, i, j - 1)]))
-          ? m[matrix_pos(N1, i - 1, j)]
-          : m[matrix_pos(N1, i, j - 1)];
+            ((m[matrix_pos(N1, i - 1, j)] >= m[matrix_pos(N1, i, j - 1)]))
+              ? m[matrix_pos(N1, i - 1, j)]
+              : m[matrix_pos(N1, i, j - 1)];
       }
     }
   }
@@ -1196,30 +1196,30 @@ TxtHashPoint* ph_texthash(const char* filename, int* nbpoints) {
       return nullptr;
     }
 
-    if (d <= 47)          /*skip cntrl chars*/
+    if (d <= 47) /*skip cntrl chars*/
       continue;
 
     if (((d >= 58) && (d <= 64)) || ((d >= 91) && (d <= 96)) || (d >= 123)) /*skip punct*/
       continue;
 
-    if ((d >= 65) && (d <= 90))    /*convert upper to lower case */
+    if ((d >= 65) && (d <= 90)) /*convert upper to lower case */
       d = d + 32;
 
     kgram[i] = static_cast<char>(d);
-    hashword = hashword << delta;   /* rotate left or shift left ??? */
+    hashword = hashword << delta; /* rotate left or shift left ??? */
     hashword = hashword ^ textkeys[d]; /* right now, rotate breaks it */
   }
 
   WinHash[win_index].hash = hashword;
   WinHash[win_index++].index = text_index;
   struct ph_hash_point minhash;
-  minhash.hash = ULLONG_MAX;
+  minhash.hash = ULLONG_MAX ;
   minhash.index = 0;
   struct ph_hash_point prev_minhash;
-  prev_minhash.hash = ULLONG_MAX;
+  prev_minhash.hash = ULLONG_MAX ;
   prev_minhash.index = 0;
 
-  while ((d = fgetc(pfile)) != EOF) {  /*remaining kgrams */
+  while ((d = fgetc(pfile)) != EOF) { /*remaining kgrams */
     text_index++;
 
     if (d == EOF) {
@@ -1227,13 +1227,13 @@ TxtHashPoint* ph_texthash(const char* filename, int* nbpoints) {
       return nullptr;
     }
 
-    if (d <= 47)          /*skip cntrl chars*/
+    if (d <= 47) /*skip cntrl chars*/
       continue;
 
     if (((d >= 58) && (d <= 64)) || ((d >= 91) && (d <= 96)) || (d >= 123)) /*skip punct*/
       continue;
 
-    if ((d >= 65) && (d <= 90))    /*convert upper to lower case */
+    if ((d >= 65) && (d <= 90)) /*convert upper to lower case */
       d = d + 32;
 
     ulong64 oldsym = textkeys[kgram[first % KgramLength]];
@@ -1253,7 +1253,7 @@ TxtHashPoint* ph_texthash(const char* filename, int* nbpoints) {
     win_index++;
 
     if (win_index >= WindowLength) {
-      minhash.hash = ULLONG_MAX;
+      minhash.hash = ULLONG_MAX ;
 
       for (i = win_index; i < win_index + WindowLength; i++) {
         if (WinHash[i % WindowLength].hash <= minhash.hash) {

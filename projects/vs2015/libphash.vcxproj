@@ -28,8 +28,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <PlatformToolset>v140</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -39,7 +38,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <PlatformToolset>v140</PlatformToolset>
-    <CharacterSet>NotSet</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -55,29 +54,32 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
-    <IntDir>$(SolutionDir)..\..\build\Debug_$(PlatformToolset)\obj\$(ProjectName)\</IntDir>
-    <OutDir>$(SolutionDir)..\..\build\Debug_$(PlatformToolset)\bin\</OutDir>
+    <OutDir>$(SolutionDir)..\..\msvc32\</OutDir>
+    <IntDir>$(SolutionDir)..\..\msvc32\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <TargetName>$(ProjectName)d</TargetName>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IntDir>$(SolutionDir)..\..\..\msvc32\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
-    <OutDir>$(SolutionDir)..\..\..\msvc32\</OutDir>
+    <OutDir>$(SolutionDir)..\..\msvc32\</OutDir>
+    <IntDir>$(SolutionDir)..\..\msvc32\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <TargetName>$(ProjectName)d</TargetName>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
-    <IntDir>$(SolutionDir)..\..\build\Release_$(PlatformToolset)\obj\$(ProjectName)\</IntDir>
-    <OutDir>$(SolutionDir)..\..\build\Release_$(PlatformToolset)\bin\</OutDir>
+    <OutDir>$(SolutionDir)..\..\msvc32\</OutDir>
+    <IntDir>$(SolutionDir)..\..\msvc32\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IntDir>$(SolutionDir)..\..\..\msvc32\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
-    <OutDir>$(SolutionDir)..\..\..\msvc32\</OutDir>
+    <OutDir>$(SolutionDir)..\..\msvc32\</OutDir>
+    <IntDir>$(SolutionDir)..\..\msvc32\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)../../include/;$(SolutionDir)../../compat/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(OutDir)include;$(ProjectDir)..\..\include\;$(ProjectDir)..\..\contrib\compat\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PHASH_DLL_EXPORT;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <OpenMPSupport>false</OpenMPSupport>
@@ -86,19 +88,36 @@
       <DebugDLLInformationFormat>ProgramDatabase</DebugDLLInformationFormat>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libjpeg9a.lib;libpng16.lib;libz.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavformatd.lib;libavcodecd.lib;libswresampled.lib;libswscaled.lib;libavutild.lib;libjpeg9ad.lib;libpng16d.lib;libzd.lib;libpthreadVC2d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(OutDir)..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalLibraryDirectories>$(OutDir)lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OptimizeReferences>false</OptimizeReferences>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <StackCommitSize>0</StackCommitSize>
       <ShowProgress>NotSet</ShowProgress>
+      <OutputFile>$(OutDir)bin\$(TargetName)$(TargetExt)</OutputFile>
     </Link>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(OutDir)include (
+  MKDIR $(OutDir)include
+)
+
+XCOPY $(ProjectDir)..\..\include\phash.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phashconfig.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phcomplex.h $(OutDir)include /D /Y
+
+IF NOT EXIST $(OutDir)licenses (
+  MKDIR $(OutDir)licenses
+)
+
+XCOPY $(ProjectDir)..\..\COPYING $(OutDir)licenses\libphash.txt /D /Y
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\compat\;$(OutDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(OutDir)include;$(ProjectDir)..\..\include\;$(ProjectDir)..\..\contrib\compat\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OpenMPSupport>
@@ -118,59 +137,74 @@
       <PrecompiledHeaderFile />
       <PrecompiledHeaderOutputFile />
     </ClCompile>
-    <Link>
-      <AdditionalDependencies>libjpeg9a.lib;libpng16.lib;libz.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(OutDir)..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <OptimizeReferences>false</OptimizeReferences>
-      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <StackCommitSize>0</StackCommitSize>
-      <ShowProgress>NotSet</ShowProgress>
-    </Link>
     <Lib>
       <OutputFile>$(OutDir)lib\$(TargetName)$(TargetExt)</OutputFile>
-    </Lib>
-    <Lib>
       <TargetMachine>MachineX86</TargetMachine>
-    </Lib>
-    <Lib>
       <SubSystem>Windows</SubSystem>
-    </Lib>
-    <Lib>
       <Verbose>true</Verbose>
       <AdditionalLibraryDirectories>$(OutDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
     </Lib>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(OutDir)include (
+  MKDIR $(OutDir)include
+)
+
+XCOPY $(ProjectDir)..\..\include\phash.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phashconfig.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phcomplex.h $(OutDir)include /D /Y
+
+IF NOT EXIST $(OutDir)licenses (
+  MKDIR $(OutDir)licenses
+)
+
+XCOPY $(ProjectDir)..\..\COPYING $(OutDir)licenses\libphash.txt /D /Y
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>$(SolutionDir)../../include/;$(SolutionDir)../../compat/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(OutDir)include;$(ProjectDir)..\..\include\;$(ProjectDir)..\..\contrib\compat\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PHASH_DLL_EXPORT;WIN32;_NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader />
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libjpeg9a.lib;libpng16.lib;libz.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavformat.lib;libavcodec.lib;libswresample.lib;libswscale.lib;libavutil.lib;libjpeg9a.lib;libpng16.lib;libz.lib;libpthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX86</TargetMachine>
-      <AdditionalLibraryDirectories>$(OutDir)..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)bin\$(TargetName)$(TargetExt)</OutputFile>
     </Link>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(OutDir)include (
+  MKDIR $(OutDir)include
+)
+
+XCOPY $(ProjectDir)..\..\include\phash.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phashconfig.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phcomplex.h $(OutDir)include /D /Y
+
+IF NOT EXIST $(OutDir)licenses (
+  MKDIR $(OutDir)licenses
+)
+
+XCOPY $(ProjectDir)..\..\COPYING $(OutDir)licenses\libphash.txt /D /Y
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\compat\;$(OutDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(OutDir)include;$(ProjectDir)..\..\include\;$(ProjectDir)..\contrib\..\compat\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <WarningLevel>Level3</WarningLevel>
@@ -203,17 +237,27 @@
     </Link>
     <Lib>
       <OutputFile>$(OutDir)lib\$(TargetName)$(TargetExt)</OutputFile>
-    </Lib>
-    <Lib>
       <TargetMachine>MachineX86</TargetMachine>
-    </Lib>
-    <Lib>
       <SubSystem>Windows</SubSystem>
-    </Lib>
-    <Lib>
       <Verbose>true</Verbose>
       <AdditionalLibraryDirectories>$(OutDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(OutDir)include (
+  MKDIR $(OutDir)include
+)
+
+XCOPY $(ProjectDir)..\..\include\phash.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phashconfig.h $(OutDir)include /D /Y
+XCOPY $(ProjectDir)..\..\include\phcomplex.h $(OutDir)include /D /Y
+
+IF NOT EXIST $(OutDir)licenses (
+  MKDIR $(OutDir)licenses
+)
+
+XCOPY $(ProjectDir)..\..\COPYING $(OutDir)licenses\libphash.txt /D /Y
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\audiophash.cpp" />
