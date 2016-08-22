@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{1A4E5682-AA5E-41E6-9C0D-CC85D3A3D547}</ProjectGuid>
-    <RootNamespace>libphash</RootNamespace>
+    <RootNamespace>phash</RootNamespace>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
