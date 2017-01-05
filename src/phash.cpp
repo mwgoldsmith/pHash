@@ -1,128 +1,57 @@
 /*
 
-    pHash, the open source perceptual hash library
-    Copyright (C) 2009 Aetilius, Inc.
-    All rights reserved.
+pHash, the open source perceptual hash library
+Copyright (C) 2009 Aetilius, Inc.
+All rights reserved.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    Evan Klinger - eklinger@phash.org
-    D Grant Starkweather - dstarkweather@phash.org
+Evan Klinger - eklinger@phash.org
+D Grant Starkweather - dstarkweather@phash.org
 
 */
 
+#include "internal.h"
 #include "phash.h"
-#include <errno.h>
-#include <sys/stat.h>
+
+#include <stdint.h>
+#include <sys/types.h>
 #include <string.h>
-#include <stdio.h>
+#include <vector>
+#include <array>
+#include <math.h>
 #include <dirent.h>
-#if HAVE_PTHREAD
+#if !defined(__GLIBC__) && !defined(_WIN32)
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#endif
+#include "callbacks.h"
+#include "MediaContext.h"
+#include "VideoProcessor.h"
+#ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
-#if HAVE_IMAGE_HASH
-#include "CImg.h"
-#endif
-#if HAVE_VIDEO_HASH
+#ifdef HAVE_VIDEO_HASH
 #include "cimgffmpeg.h"
 #endif
 
-#ifndef _WIN32
-#  define SEPARATOR   "/"
-#else
-#  if defined(_MSC_VER) && (_MSC_VER < 1900)
-#    define snprintf _snprintf
-#  endif
-#  define SEPARATOR   "\\"
-#endif
-
-const char phash_project[] = "%s. Copyright 2008-2010 Aetilius, Inc.";
-char phash_version[255] = {0};
-
-const char* ph_about() {
-  if (phash_version[0] != 0)
-    return phash_version;
-
-  snprintf(phash_version, sizeof(phash_version), phash_project, "pHash 0.9.6");
-  return phash_version;
-}
-
-DP* ph_malloc_datapoint(int hashtype) {
-  DP* dp = static_cast<DP*>(malloc(sizeof(DP)));
-  dp->hash = nullptr;
-  dp->id = nullptr;
-  dp->hash_type = hashtype;
-  return dp;
-}
-
-void ph_free_datapoint(DP* dp) {
-  if (!dp) {
-    return;
-  }
-
-  free(dp);
-  // dp = nullptr;
-  // return;
-}
-
-char** ph_readfilenames(const char* dirname, int& count) {
-  count = 0;
-  struct dirent* dir_entry;
-  DIR* dir = opendir(dirname);
-
-  if (!dir)
-    return nullptr;
-
-  /*count files */
-  while ((dir_entry = readdir(dir)) != nullptr) {
-    if (strcmp(dir_entry->d_name, ".") && strcmp(dir_entry->d_name, ".."))
-      count++;
-  }
-
-  /* alloc list of files */
-  char** files = static_cast<char**>(malloc(count * sizeof(*files)));
-
-  if (!files)
-    return nullptr;
-
-  errno = 0;
-  int index = 0;
-  char path[1024];
-  path[0] = '\0';
-  rewinddir(dir);
-
-  while ((dir_entry = readdir(dir)) != nullptr) {
-    if (strcmp(dir_entry->d_name, ".") && strcmp(dir_entry->d_name, "..")) {
-      strcat(path, dirname);
-      strcat(path, SEPARATOR);
-      strcat(path, dir_entry->d_name);
-      files[index++] = strdup(path);
-    }
-
-    path[0] = '\0';
-  }
-
-  if (errno)
-    return nullptr;
-
-  closedir(dir);
-  return files;
-}
-
-namespace {
-#if HAVE_PTHREAD
-#  define MAX_THREADS 10
+/* variables for textual hash */
+const int KgramLength = 50;
+const int WindowLength = 100;
+const int delta = 1;
+static const int MAX_THREADS = 4;
 
 typedef struct ph_slice {
   DP** hash_p;
@@ -130,265 +59,269 @@ typedef struct ph_slice {
   void* hash_params;
 } slice;
 
-int ph_num_threads() {
-  int numCPU;
-#ifdef _WIN32
-  SYSTEM_INFO sysinfo;
-  GetSystemInfo(&sysinfo);
-
-  numCPU = sysinfo.dwNumberOfProcessors;
-#elif __GLIBC__
-    numCPU = sysconf(_SC_NPROCESSORS_ONLN);
-#else
-    int mib[2];
-    size_t len;
-
-    mib[0] = CTL_HW;
-    mib[1] = HW_AVAILCPU;
-
-    sysctl(mib, 2, &numCPU, &len, nullptr, 0);
-
-    if (numCPU < 1) {
-      mib[1] = HW_NCPU;
-      sysctl(mib, 2, &numCPU, &len, nullptr, 0);
-
-      if (numCPU < 1) {
-        numCPU = 1;
-      }
-    }
-
-#endif
-  return numCPU;
+const char* ph_about() {
+  static const char phash_project[] = PACKAGE_STRING " " PACKAGE_VERSION ". Copyright 2008-2010 Aetilius, Inc.";
+  return phash_project;
 }
 
-#endif /* HAVE_PTHREAD */
+#ifdef HAVE_IMAGE_HASH
 
-#if HAVE_IMAGE_HASH
-#  define SQRT_TWO 1.4142135623730950488016887242097
-
-/** feature vector info */
-typedef struct ph_feature_vector {
-  double* features; //the head of the feature array of double's
-  int size; //the size of the feature array
-} Features;
-
-/** Radon Projection info */
-typedef struct ph_projections {
-  cimg_library::CImg<uint8_t>* R; //contains projections of image of angled lines through center
-  int* nb_pix_perline; //the head of int array denoting the number of pixels of each line
-  int size; //the size of nb_pix_perline
-} Projections;
-
-cimg_library::CImg<float>* get_mh_kernel(float alpha, float level) {
-  int sigma = static_cast<int>(4 * pow(alpha, level));
-  static cimg_library::CImg<float>* pkernel = nullptr;
+CImageF* GetMHKernel(float alpha, float level) {
+  //int sigma = static_cast<int>(4) * pow(alpha, level);
+  auto sigma = static_cast<int>(4 * pow(alpha, level));
+  static CImageF *pkernel = nullptr;
   float xpos, ypos, A;
-
-  if (!pkernel) {
-    pkernel = new cimg_library::CImg<float>(2 * sigma + 1, 2 * sigma + 1, 1, 1, 0);
+  if(!pkernel) {
+    pkernel = new CImageF(2 * sigma + 1, 2 * sigma + 1, 1, 1, 0);
     cimg_forXY(*pkernel, X, Y) {
-      xpos = pow(alpha, -level) * (X - sigma);
-      ypos = pow(alpha, -level) * (Y - sigma);
-      A = xpos * xpos + ypos * ypos;
-      pkernel->atXY(X, Y) = (2 - A) * exp(-A / 2);
+      xpos = pow(alpha, -level)*(X - sigma);
+      ypos = pow(alpha, -level)*(Y - sigma);
+      A = xpos*xpos + ypos*ypos;
+      pkernel->atXY(X, Y) = (2 - A)*exp(-A / 2);
     }
   }
-
   return pkernel;
 }
 
-/*! /brief dct
-  *  Compute the dct of a given vector
-  *  /param R - vector of input series
-  *  /param D - (out) the dct of R
-  *  /return  int value - less than 0 for error
-  */
-int ph_dct(const Features& fv, Digest& digest) {
-  int N = fv.size;
-  const int nb_coeffs = 40;
+uint8_t* ph_mh_imagehash(const char *filename, int &N, float alpha, float lvl) {
+  if(filename == nullptr) {
+    return nullptr;
+  }
+  auto hash = new uint8_t[72];// static_cast<uint8_t*>(malloc(72 * sizeof(uint8_t)));
+  N = 72;
 
-  digest.coeffs = static_cast<uint8_t*>(malloc(nb_coeffs * sizeof(uint8_t)));
+  CImageI src(filename);
+  CImageI img;
 
-  if (!digest.coeffs)
-    return EXIT_FAILURE;
+  if(src.spectrum() == 3) {
+    img = src.get_RGBtoYCbCr().channel(0).blur(1.0).resize(512, 512, 1, 1, 5).get_equalize(256);
+  } else {
+    img = src.channel(0).get_blur(1.0).resize(512, 512, 1, 1, 5).get_equalize(256);
+  }
+  src.clear();
 
-  digest.size = nb_coeffs;
-  double* R = fv.features;
-  uint8_t* D = digest.coeffs;
-  double D_temp[nb_coeffs];
-  double max = 0.0;
-  double min = 0.0;
-
-  for (int k = 0; k < nb_coeffs; k++) {
-    double sum = 0.0;
-
-    for (int n = 0; n < N; n++) {
-      double temp = R[n] * cos((cimg_library::cimg::PI * (2 * n + 1) * k) / (2 * N));
-      sum += temp;
+  auto pkernel = GetMHKernel(alpha, lvl);
+  auto fresp = img.get_correlate(*pkernel);
+  img.clear();
+  fresp.normalize(0, 1.0);
+  CImageF blocks(31, 31, 1, 1, 0);
+  for(auto rindex = 0; rindex < 31; rindex++) {
+    for(auto cindex = 0; cindex < 31; cindex++) {
+      blocks(rindex, cindex) = static_cast<float>(fresp.get_crop(rindex * 16, cindex * 16, rindex * 16 + 16 - 1, cindex * 16 + 16 - 1).sum());
     }
-
-    if (k == 0) {
-      D_temp[k] = sum / sqrt(static_cast<double>(N));
-    } else {
-      D_temp[k] = sum * SQRT_TWO / sqrt(static_cast<double>(N));
+  }
+  int hash_index;
+  auto nb_ones = 0, nb_zeros = 0;
+  auto bit_index = 0;
+  unsigned char hashbyte = 0;
+  for(auto rindex = 0; rindex < 31 - 2; rindex += 4) {
+    CImageF subsec;
+    for(auto cindex = 0; cindex < 31 - 2; cindex += 4) {
+      subsec = blocks.get_crop(cindex, rindex, cindex + 2, rindex + 2).unroll('x');
+      float ave = float(subsec.mean());
+      cimg_forX(subsec, I) {
+        hashbyte <<= 1;
+        if(subsec(I) > ave) {
+          hashbyte |= 0x01;
+          nb_ones++;
+        } else {
+          nb_zeros++;
+        }
+        bit_index++;
+        if((bit_index % 8) == 0) {
+          hash_index = static_cast<int>(bit_index / 8) - 1;
+          hash[hash_index] = hashbyte;
+          hashbyte = 0x00;
+        }
+      }
     }
-
-    if (D_temp[k] > max)
-      max = D_temp[k];
-
-    if (D_temp[k] < min)
-      min = D_temp[k];
   }
 
-  for (int i = 0; i < nb_coeffs; i++) {
-    D[i] = static_cast<uint8_t>(UCHAR_MAX * (D_temp[i] - min) / (max - min));
-  }
-
-  return EXIT_SUCCESS;
+  return hash;
 }
 
-/*! /brief radon function
-  *  Find radon projections of N lines running through the image center for lines angled 0
-  *  to 180 degrees from horizontal.
-  *  /param img - CImg src image
-  *  /param  N  - int number of angled lines to consider.
-  *  /param  projs - (out) Projections struct
-  *  /return int value - less than 0 for error
-  */
-int ph_radon_projections(const cimg_library::CImg<uint8_t>& img, int N, Projections& projs) {
-  int width = img.width();
-  int height = img.height();
-  int D = (width > height) ? width : height;
-  float x_center = width / 2.0F;
-  float y_center = height / 2.0F;
-  int x_off = static_cast<int>(floor(x_center + static_cast<float>(ROUNDING_FACTOR(x_center))));
-  int y_off = static_cast<int>(floor(y_center + static_cast<float>(ROUNDING_FACTOR(y_center))));
+int ph_radon_projections(const CImageI &img, int N, Projections &projs) {
+  auto width = img.width();
+  auto height = img.height();
+  auto D = (width > height) ? width : height;
+  auto x_center = static_cast<float>(width) / 2;
+  auto y_center = static_cast<float>(height) / 2;
+  auto x_off = static_cast<int>(std::floor(x_center + ROUNDING_FACTOR(x_center)));
+  auto y_off = static_cast<int>(std::floor(y_center + ROUNDING_FACTOR(y_center)));
 
-  projs.R = new cimg_library::CImg<uint8_t>(N, D, 1, 1, 0);
+  projs.R = new CImageI(N, D, 1, 1, 0);
   projs.nb_pix_perline = static_cast<int*>(calloc(N, sizeof(int)));
 
-  if (!projs.R || !projs.nb_pix_perline)
+  if(!projs.R || !projs.nb_pix_perline)
     return EXIT_FAILURE;
 
   projs.size = N;
 
-  cimg_library::CImg<uint8_t>* ptr_radon_map = projs.R;
-  int* nb_per_line = projs.nb_pix_perline;
+  auto ptr_radon_map = projs.R;
+  auto nb_per_line = projs.nb_pix_perline;
 
-  for (int k = 0; k < N / 4 + 1; k++) {
-    double theta = k * cimg_library::cimg::PI / N;
-    double alpha = std::tan(theta);
-
-    for (int x = 0; x < D; x++) {
-      double y = alpha * (x - x_off);
-      int yd = static_cast<int>(floor(y + static_cast<float>(ROUNDING_FACTOR(y))));
-      if ((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
+  for(auto k = 0; k < N / 4 + 1; k++) {
+    auto theta = k* cimg_library::cimg::PI / N;
+    auto alpha = std::tan(theta);
+    for(auto x = 0; x < D; x++) {
+      auto y = alpha*(x - x_off);
+      auto yd = static_cast<int>(std::floor(y + ROUNDING_FACTOR(y)));
+      if((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
         *ptr_radon_map->data(k, x) = img(x, yd + y_off);
         nb_per_line[k] += 1;
       }
-
-      if ((yd + x_off >= 0) && (yd + x_off < width) && (k != N / 4) && (x < height)) {
+      if((yd + x_off >= 0) && (yd + x_off < width) && (k != N / 4) && (x < height)) {
         *ptr_radon_map->data(N / 2 - k, x) = img(yd + x_off, x);
         nb_per_line[N / 2 - k] += 1;
       }
     }
   }
-
-  int j = 0;
-
-  for (int k = 3 * N / 4; k < N; k++) {
-    double theta = k * cimg_library::cimg::PI / N;
-    double alpha = std::tan(theta);
-
-    for (int x = 0; x < D; x++) {
-      double y = alpha * (x - x_off);
-      int yd = static_cast<int>(floor(y + static_cast<float>(ROUNDING_FACTOR(y))));
-      if ((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
+  auto j = 0;
+  for(auto k = 3 * N / 4; k < N; k++) {
+    auto theta = k* cimg_library::cimg::PI / N;
+    auto alpha = std::tan(theta);
+    for(auto x = 0; x < D; x++) {
+      auto y = alpha*(x - x_off);
+      auto yd = static_cast<int>(std::floor(y + ROUNDING_FACTOR(y)));
+      if((yd + y_off >= 0) && (yd + y_off < height) && (x < width)) {
         *ptr_radon_map->data(k, x) = img(x, yd + y_off);
         nb_per_line[k] += 1;
       }
-
-      if ((y_off - yd >= 0) && (y_off - yd < width) && (2 * y_off - x >= 0) && (2 * y_off - x < height) && (k != 3 * N / 4)) {
+      if((y_off - yd >= 0) && (y_off - yd < width) && (2 * y_off - x >= 0) && (2 * y_off - x < height) && (k != 3 * N / 4)) {
         *ptr_radon_map->data(k - j, x) = img(-yd + y_off, -(x - y_off) + y_off);
         nb_per_line[k - j] += 1;
       }
 
     }
-
     j += 2;
   }
 
   return EXIT_SUCCESS;
 }
 
-/*! /brief feature vector
-  *         compute the feature vector from a radon projection map.
-  *  /param  projs - Projections struct
-  *  /param  fv    - (out) Features struct
-  *  /return int value - less than 0 for error
-  */
-int ph_feature_vector(const Projections& projs, Features& fv) {
-  cimg_library::CImg<uint8_t>* ptr_map = projs.R;
-  cimg_library::CImg<uint8_t> projection_map = *ptr_map;
-  int* nb_perline = projs.nb_pix_perline;
-  int N = projs.size;
-  int D = projection_map.height();
+int ph_feature_vector(const Projections &projs, Features &fv) {
+  auto ptr_map = projs.R;
+  auto projection_map = *ptr_map;
+  auto nb_perline = projs.nb_pix_perline;
+  auto N = projs.size;
+  auto D = projection_map.height();
 
   fv.features = static_cast<double*>(malloc(N * sizeof(double)));
   fv.size = N;
-
-  if (!fv.features)
+  if(!fv.features)
     return EXIT_FAILURE;
 
-  double* feat_v = fv.features;
-  double sum = 0.0;
-  double sum_sqd = 0.0;
-
-  for (int k = 0; k < N; k++) {
-    double line_sum = 0.0;
-    double line_sum_sqd = 0.0;
-    int nb_pixels = nb_perline[k];
-
-    for (int i = 0; i < D; i++) {
+  auto *feat_v = fv.features;
+  auto sum = 0.0;
+  auto sum_sqd = 0.0;
+  for(auto k = 0; k < N; k++) {
+    auto line_sum = 0.0;
+    auto line_sum_sqd = 0.0;
+    auto nb_pixels = nb_perline[k];
+    for(auto i = 0; i < D; i++) {
       line_sum += projection_map(k, i);
-      line_sum_sqd += projection_map(k, i) * projection_map(k, i);
+      line_sum_sqd += projection_map(k, i)*projection_map(k, i);
     }
-
-    feat_v[k] = (line_sum_sqd / nb_pixels) - (line_sum * line_sum) / (nb_pixels * nb_pixels);
+    feat_v[k] = (line_sum_sqd / nb_pixels) - (line_sum*line_sum) / (nb_pixels*nb_pixels);
     sum += feat_v[k];
     sum_sqd += feat_v[k] * feat_v[k];
   }
+  auto mean = sum / N;
+  auto var = sqrt((sum_sqd / N) - (sum*sum) / (N*N));
 
-  double mean = sum / N;
-  double var = sqrt((sum_sqd / N) - (sum * sum) / (N * N));
-
-  for (int i = 0; i < N; i++) {
+  for(auto i = 0; i < N; i++) {
     feat_v[i] = (feat_v[i] - mean) / var;
   }
 
   return EXIT_SUCCESS;
 }
 
+int ph_dct(const Features &fv, Digest &digest) {
+  auto N = fv.size;
+  const auto nb_coeffs = 40;
+
+  digest.coeffs = static_cast<uint8_t*>(malloc(nb_coeffs * sizeof(uint8_t)));
+  if(!digest.coeffs)
+    return EXIT_FAILURE;
+
+  digest.size = nb_coeffs;
+  auto R = fv.features;
+  auto D = digest.coeffs;
+
+  double D_temp[nb_coeffs];
+  auto max = 0.0;
+  auto min = 0.0;
+  for(auto k = 0; k < nb_coeffs; k++) {
+    auto sum = 0.0;
+    for(auto n = 0; n < N; n++) {
+      auto temp = R[n] * cos((cimg_library::cimg::PI*(2 * n + 1)*k) / (2 * N));
+      sum += temp;
+    }
+    if(k == 0)
+      D_temp[k] = sum / sqrt(static_cast<double>(N));
+    else
+      D_temp[k] = sum*SQRT_TWO / sqrt(static_cast<double>(N));
+    if(D_temp[k] > max)
+      max = D_temp[k];
+    if(D_temp[k] < min)
+      min = D_temp[k];
+  }
+
+  for(auto i = 0; i < nb_coeffs; i++) {
+    D[i] = static_cast<uint8_t>(UCHAR_MAX*(D_temp[i] - min) / (max - min));
+  }
+
+  return EXIT_SUCCESS;
+}
+
+int ph_crosscorr(const Digest &x, const Digest &y, double &pcc, double threshold) {
+  int N = y.size;
+  int result = 0;
+
+  uint8_t *x_coeffs = x.coeffs;
+  uint8_t *y_coeffs = y.coeffs;
+
+  double *r = new double[N];
+  double sumx = 0.0;
+  double sumy = 0.0;
+  for(int i = 0; i < N; i++) {
+    sumx += x_coeffs[i];
+    sumy += y_coeffs[i];
+  }
+  double meanx = sumx / N;
+  double meany = sumy / N;
+  double max = 0;
+  for(int d = 0; d < N; d++) {
+    double num = 0.0;
+    double denx = 0.0;
+    double deny = 0.0;
+    for(int i = 0; i < N; i++) {
+      num += (x_coeffs[i] - meanx)*(y_coeffs[(N + i - d) % N] - meany);
+      denx += pow((x_coeffs[i] - meanx), 2);
+      deny += pow((y_coeffs[(N + i - d) % N] - meany), 2);
+    }
+    r[d] = num / sqrt(denx*deny);
+    if(r[d] > max)
+      max = r[d];
+  }
+  delete[] r;
+  pcc = max;
+  if(max > threshold)
+    result = 1;
+
+  return result;
+}
+
 #ifdef max
 #undef max
 #endif
 
-/*! /brief image digest
-  *  Compute the image digest for an image given the input image
-  *  /param img - CImg object representing an input image
-  *  /param sigma - double value for the deviation for a gaussian filter function
-  *  /param gamma - double value for gamma correction on the input image
-  *  /param digest - (out) Digest struct
-  *  /param N      - int value for the number of angles to consider.
-  *  /return       - less than 0 for error
-  */
-int _ph_image_digest(const cimg_library::CImg<uint8_t>& img, double sigma, double gamma, Digest& digest, int N) {
-  int result = EXIT_FAILURE;
-  cimg_library::CImg<uint8_t> graysc;
-
-  if (img.spectrum() >= 3) {
+int _ph_image_digest(const CImageI &img, double sigma, double gamma, Digest &digest, int N) {
+  auto result = EXIT_FAILURE;
+  CImageI graysc;
+  if(img.spectrum() >= 3) {
     graysc = img.get_RGBtoYCbCr().channel(0);
-  } else if (img.spectrum() == 1) {
+  } else if(img.spectrum() == 1) {
     graysc = img;
   } else {
     return result;
@@ -398,16 +331,15 @@ int _ph_image_digest(const cimg_library::CImg<uint8_t>& img, double sigma, doubl
 
   (graysc / graysc.max()).pow(gamma);
 
-  Features features;
   Projections projs;
-
-  if (ph_radon_projections(graysc, N, projs) < 0)
+  if(ph_radon_projections(graysc, N, projs) < 0)
     goto cleanup;
 
-  if (ph_feature_vector(projs, features) < 0)
+  Features features;
+  if(ph_feature_vector(projs, features) < 0)
     goto cleanup;
 
-  if (ph_dct(features, digest) < 0)
+  if(ph_dct(features, digest) < 0)
     goto cleanup;
 
   result = EXIT_SUCCESS;
@@ -420,349 +352,41 @@ cleanup:
   return result;
 }
 
-/*! /brief compare 2 images
-  *  /param imA - CImg object of first image
-  *  /param imB - CImg object of second image
-  *  /param pcc   - (out) double value for peak of cross correlation
-  *  /param sigma - double value for the deviation of gaussian filter
-  *  /param gamma - double value for gamma correction of images
-  *  /param N     - int number for the number of angles of radon projections
-  *  /param theshold - double value for the threshold
-  *  /return int 0 (false) for different images, 1 (true) for same image, less than 0 for error
-  */
-int _ph_compare_images(const cimg_library::CImg<uint8_t>& imA, const cimg_library::CImg<uint8_t>& imB, double& pcc, double sigma, double gamma, int N, double threshold) {
+#define max(a,b) (((a)>(b))?(a):(b))
+
+int ph_image_digest(const char *file, double sigma, double gamma, Digest &digest, int N) {
+  CImageI src(file);
+  auto result = _ph_image_digest(src, sigma, gamma, digest, N);
+
+  return result;
+}
+
+int _ph_compare_images(const CImageI &imA, const CImageI &imB, double &pcc, double sigma, double gamma, int N, double threshold) {
   int result = 0;
   Digest digestA;
+  if(_ph_image_digest(imA, sigma, gamma, digestA, N) < 0)
+    goto cleanup;
+
   Digest digestB;
-
-  if (_ph_image_digest(imA, sigma, gamma, digestA, N) < 0)
+  if(_ph_image_digest(imB, sigma, gamma, digestB, N) < 0)
     goto cleanup;
 
-  if (_ph_image_digest(imB, sigma, gamma, digestB, N) < 0)
+  if(ph_crosscorr(digestA, digestB, pcc, threshold) < 0)
     goto cleanup;
 
-  if (ph_crosscorr(digestA, digestB, pcc, threshold) < 0)
-    goto cleanup;
-
-  if (pcc > threshold)
+  if(pcc > threshold)
     result = 1;
 
 cleanup:
-
   free(digestA.coeffs);
   free(digestB.coeffs);
-  return result;
-}
-
-/** /brief count number bits set in given byte
-  *   /param val - uint8_t byte value
-  *   /return int value for number of bits set
-  **/
-int ph_bitcount8(uint8_t val) {
-  int num = 0;
-
-  while (val) {
-    ++num;
-    val &= val - 1;
-  }
-
-  return num;
-}
-
-/*! /brief return dct matrix, C
-  *  Return DCT matrix of sqare size, N
-  *  /param N - int denoting the size of the square matrix to create.
-  *  /return CImg<double> size NxN containing the dct matrix
-  */
-cimg_library::CImg<float>* ph_dct_matrix(const int N) {
-  cimg_library::CImg<float>* ptr_matrix = new cimg_library::CImg<float>(N, N, 1, 1, 1 / sqrt(static_cast<float>(N)));
-  const float c1 = sqrt(2.0F / N);
-  const float p = static_cast<const float>(cimg_library::cimg::PI);
-  for (int x = 0; x < N; x++) {
-    for (int y = 1; y < N; y++) {
-      *ptr_matrix->data(x, y) = c1 * cos(p / 2.0F / N * y * (2.0F * x + 1.0F));
-    }
-  }
-
-  return ptr_matrix;
-}
-
-#if HAVE_VIDEO_HASH
-cimg_library::CImgList<uint8_t>* get_video_key_frames(const char* filename) {
-  int64_t N = GetNumberVideoFrames(filename);
-
-  if (N < 0) {
-    return nullptr;
-  }
-
-  float frames_per_sec = 0.5F * fps(filename);
-
-  if (frames_per_sec < 0) {
-    return nullptr;
-  }
-
-  int step = static_cast<int>(frames_per_sec + ROUNDING_FACTOR(frames_per_sec));
-  long nbframes = static_cast<long>(N / step);
-
-  float* dist = static_cast<float*>(malloc((nbframes) * sizeof(float)));
-
-  if (!dist) {
-    return nullptr;
-  }
-
-  cimg_library::CImg<float> prev(64, 1, 1, 1, 0);
-
-  VFInfo st_info;
-  st_info.filename = filename;
-  st_info.nb_retrieval = 100;
-  st_info.step = step;
-  st_info.pixelformat = 0;
-  st_info.pFormatCtx = nullptr;
-  st_info.width = -1;
-  st_info.height = -1;
-
-  cimg_library::CImgList<uint8_t>* pframelist = new cimg_library::CImgList<uint8_t>();
-
-  if (!pframelist) {
-    return nullptr;
-  }
-
-  int nbread;
-  int k = 0;
-
-  do {
-    nbread = NextFrames(&st_info, pframelist);
-
-    if (nbread < 0) {
-      delete pframelist;
-      free(dist);
-      return nullptr;
-    }
-
-    unsigned int i = 0;
-
-    while ((i < pframelist->size()) && (k < nbframes)) {
-      cimg_library::CImg<uint8_t> current = pframelist->at(i++);
-      cimg_library::CImg<float> hist = current.get_histogram(64, 0, 255);
-      float d;
-      dist[k] = 0.0;
-      cimg_forX(hist, X) {
-        d = hist(X) - prev(X);
-        d = (d >= 0) ? d : -d;
-        dist[k] += d;
-        prev(X) = hist(X);
-      }
-      k++;
-    }
-
-    pframelist->clear();
-  } while ((nbread >= st_info.nb_retrieval) && (k < nbframes));
-
-  vfinfo_close(&st_info);
-
-  int S = 10;
-  int L = 50;
-  int alpha1 = 3;
-  int alpha2 = 2;
-  int s_begin, s_end;
-  int l_begin, l_end;
-  uint8_t* bnds = static_cast<uint8_t*>(malloc(nbframes * sizeof(uint8_t)));
-
-  if (!bnds) {
-    delete pframelist;
-    free(dist);
-    return nullptr;
-  }
-
-  int nbboundaries = 0;
-  k = 1;
-  bnds[0] = 1;
-
-  do {
-    s_begin = (k - S >= 0) ? k - S : 0;
-    s_end = (k + S < nbframes) ? k + S : nbframes - 1;
-    l_begin = (k - L >= 0) ? k - L : 0;
-    l_end = (k + L < nbframes) ? k + L : nbframes - 1;
-
-    /* get global average */
-    float ave_global, sum_global = 0.0, dev_global = 0.0;
-
-    for (int i = l_begin; i <= l_end; i++) {
-      sum_global += dist[i];
-    }
-
-    ave_global = sum_global / static_cast<float>(l_end - l_begin + 1);
-
-    /*get global deviation */
-    for (int i = l_begin; i <= l_end; i++) {
-      float dev = ave_global - dist[i];
-      dev = (dev >= 0) ? dev : -1 * dev;
-      dev_global += dev;
-    }
-
-    dev_global = dev_global / static_cast<float>(l_end - l_begin + 1);
-
-    /* global threshold */
-    float T_global = ave_global + alpha1 * dev_global;
-
-    /* get local maximum */
-    int localmaxpos = s_begin;
-
-    for (int i = s_begin; i <= s_end; i++) {
-      if (dist[i] > dist[localmaxpos])
-        localmaxpos = i;
-    }
-
-    /* get 2nd local maximum */
-    int localmaxpos2 = s_begin;
-    float localmax2 = 0;
-
-    for (int i = s_begin; i <= s_end; i++) {
-      if (i == localmaxpos)
-        continue;
-
-      if (dist[i] > localmax2) {
-        localmaxpos2 = i;
-        localmax2 = dist[i];
-      }
-    }
-
-    float T_local = alpha2 * dist[localmaxpos2];
-    float Thresh = (T_global >= T_local) ? T_global : T_local;
-
-    if ((dist[k] == dist[localmaxpos]) && (dist[k] > Thresh)) {
-      bnds[k] = 1;
-      nbboundaries++;
-    } else {
-      bnds[k] = 0;
-    }
-
-    k++;
-  } while (k < nbframes - 1);
-
-  bnds[nbframes - 1] = 1;
-  //  nbboundaries += 2;
-
-  int start = 0;
-  int end = 0;
-  int nbselectedframes = 0;
-
-  do {
-    /* find next boundary */
-    do {
-      end++;
-    } while ((bnds[end] != 1) && (end < nbframes));
-
-    /* find min disparity within bounds */
-    int minpos = start + 1;
-
-    for (int i = start + 1; i < end; i++) {
-      if (dist[i] < dist[minpos])
-        minpos = i;
-    }
-
-    bnds[minpos] = 2;
-    nbselectedframes++;
-    start = end;
-  } while (start < nbframes - 1);
-
-  st_info.nb_retrieval = 1;
-  st_info.width = 32;
-  st_info.height = 32;
-  k = 0;
-
-  do {
-    if (bnds[k] == 2) {
-      if (ReadFrames(&st_info, pframelist, k * st_info.step, k * st_info.step + 1) < 0) {
-        delete pframelist;
-        free(dist);
-        return nullptr;
-      }
-    }
-
-    k++;
-  } while (k < nbframes);
-
-  vfinfo_close(&st_info);
-
-  free(bnds);
-  // bnds = nullptr;
-  free(dist);
-  // dist = nullptr;
-
-  return pframelist;
-}
-
-inline constexpr int matrix_size(int zx, int zy) {
-  return (((zx) + 1) * ((zy) + 1));
-}
-
-inline constexpr int matrix_pos(int zx, int x, int y) {
-  return ((x) * (((zx) + 1) + (y)));
-}
-
-#endif /* HAVE_VIDEO_HASH */
-
-#endif /* HAVE_IMAGE_HASH */
-}
-
-#if HAVE_IMAGE_HASH
-
-int ph_crosscorr(const Digest& x, const Digest& y, double& pcc, double threshold) {
-  int N = y.size;
-  int result = 0;
-
-  uint8_t* x_coeffs = x.coeffs;
-  uint8_t* y_coeffs = y.coeffs;
-
-  double* r = new double[N];
-  double sumx = 0.0;
-  double sumy = 0.0;
-
-  for (int i = 0; i < N; i++) {
-    sumx += x_coeffs[i];
-    sumy += y_coeffs[i];
-  }
-
-  double meanx = sumx / N;
-  double meany = sumy / N;
-  double max = 0;
-
-  for (int d = 0; d < N; d++) {
-    double num = 0.0;
-    double denx = 0.0;
-    double deny = 0.0;
-
-    for (int i = 0; i < N; i++) {
-      num += (x_coeffs[i] - meanx) * (y_coeffs[(N + i - d) % N] - meany);
-      denx += pow((x_coeffs[i] - meanx), 2);
-      deny += pow((y_coeffs[(N + i - d) % N] - meany), 2);
-    }
-
-    r[d] = num / sqrt(denx * deny);
-
-    if (r[d] > max)
-      max = r[d];
-  }
-
-  delete[] r;
-  pcc = max;
-
-  if (max > threshold)
-    result = 1;
 
   return result;
 }
 
-int ph_image_digest(const char* file, double sigma, double gamma, Digest& digest, int N) {
-  cimg_library::CImg<uint8_t> src(file);
-  int res = _ph_image_digest(src, sigma, gamma, digest, N);
-  return res;
-}
-
-int ph_compare_images(const char* file1, const char* file2, double& pcc, double sigma, double gamma, int N, double threshold) {
-  cimg_library::CImg<uint8_t>* imA = new cimg_library::CImg<uint8_t>(file1);
-  cimg_library::CImg<uint8_t>* imB = new cimg_library::CImg<uint8_t>(file2);
+int ph_compare_images(const char *file1, const char *file2, double &pcc, double sigma, double gamma, int N, double threshold) {
+  CImageI *imA = new CImageI(file1);
+  CImageI *imB = new CImageI(file2);
 
   int res = _ph_compare_images(*imA, *imB, pcc, sigma, gamma, N, threshold);
 
@@ -771,51 +395,54 @@ int ph_compare_images(const char* file1, const char* file2, double& pcc, double 
   return res;
 }
 
-int ph_dct_imagehash(const char* file, ulong64& hash) {
-  if (!file) {
-    return -1;
+CImageF* ph_dct_matrix(const int N) {
+  auto ptr_matrix = new CImageF(N, N, 1, 1, 1 / sqrt(static_cast<float>(N)));
+  const double c1 = sqrt(2.0 / N);
+  for(auto x = 0; x<N; x++) {
+    for(auto y = 1; y<N; y++) {
+      *ptr_matrix->data(x, y) = static_cast<float>(c1*cos((cimg_library::cimg::PI / 2 / N)*y*(2 * x + 1)));
+    }
   }
 
-  cimg_library::CImg<uint8_t> src;
+  return ptr_matrix;
+}
 
+int ph_dct_imagehash(const char* file, uint64_t &hash) {
+  if(!file) {
+    return -1;
+  }
+  CImageI src;
   try {
     src.load(file);
-  } catch (cimg_library::CImgIOException ex) {
+  } catch(cimg_library::CImgIOException ex) {
     return -1;
   }
-
-  cimg_library::CImg<float> meanfilter(7, 7, 1, 1, 1);
-  cimg_library::CImg<float> img;
-
-  if (src.spectrum() == 3) {
+  CImageF meanfilter(7, 7, 1, 1, 1);
+  CImageF img;
+  if(src.spectrum() == 3) {
     img = src.RGBtoYCbCr().channel(0).get_convolve(meanfilter);
-  } else if (src.spectrum() == 4) {
-    int width = img.width();
-    int height = img.height();
-    int depth = img.depth();
+  } else if(src.spectrum() == 4) {
+    auto width = img.width();
+    auto height = img.height();
+    auto depth = img.depth();
     img = src.crop(0, 0, 0, 0, width - 1, height - 1, depth - 1, 2).RGBtoYCbCr().channel(0).get_convolve(meanfilter);
   } else {
     img = src.channel(0).get_convolve(meanfilter);
   }
 
   img.resize(32, 32);
-  cimg_library::CImg<float>* C = ph_dct_matrix(32);
-  cimg_library::CImg<float> Ctransp = C->get_transpose();
+  auto C = ph_dct_matrix(32);
+  auto Ctransp = C->get_transpose();
+  auto dctImage = (*C)*img*Ctransp;
+  auto subsec = dctImage.crop(1, 1, 8, 8).unroll('x');;
 
-  cimg_library::CImg<float> dctImage = (*C) * img * Ctransp;
-
-  cimg_library::CImg<float> subsec = dctImage.crop(1, 1, 8, 8).unroll('x');;
-
-  float median = subsec.median();
-  ulong64 one = 0x0000000000000001;
+  auto median = subsec.median();
+  uint64_t one = 0x0000000000000001;
   hash = 0x0000000000000000;
-
-  for (int i = 0; i < 64; i++) {
-    float current = subsec(i);
-
-    if (current > median)
+  for(auto i = 0; i < 64; i++) {
+    auto current = subsec(i);
+    if(current > median)
       hash |= one;
-
     one = one << 1;
   }
 
@@ -824,158 +451,86 @@ int ph_dct_imagehash(const char* file, ulong64& hash) {
   return 0;
 }
 
-int ph_hamming_distance(const ulong64 hash1, const ulong64 hash2) {
-  ulong64 x = hash1 ^ hash2;
-  const ulong64 m1 = 0x5555555555555555ULL;
-  const ulong64 m2 = 0x3333333333333333ULL;
-  const ulong64 h01 = 0x0101010101010101ULL;
-  const ulong64 m4 = 0x0f0f0f0f0f0f0f0fULL;
-  x -= (x >> 1) & m1;
-  x = (x & m2) + ((x >> 2) & m2);
-  x = (x + (x >> 4)) & m4;
-  return (x * h01) >> 56;
-}
+#ifdef HAVE_PTHREAD
 
-uint8_t* ph_mh_imagehash(const char* filename, int& N, float alpha, float lvl) {
-  if (filename == nullptr) {
-    return nullptr;
-  }
+int ph_num_threads() {
+  int numCPU;
+#ifdef _WIN32
+  SYSTEM_INFO sysinfo;
+  GetSystemInfo(&sysinfo);
 
-  uint8_t* hash = static_cast<unsigned char*>(malloc(72 * sizeof(uint8_t)));
-  N = 72;
+  numCPU = sysinfo.dwNumberOfProcessors;
+#elif __GLIBC__
+  numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+#else
+  int mib[2];
+  size_t len;
 
-  cimg_library::CImg<uint8_t> src(filename);
-  cimg_library::CImg<uint8_t> img;
+  mib[0] = CTL_HW;
+  mib[1] = HW_AVAILCPU;
 
-  if (src.spectrum() == 3) {
-    img = src.get_RGBtoYCbCr().channel(0).blur(1.0).resize(512, 512, 1, 1, 5).get_equalize(256);
-  } else {
-    img = src.channel(0).get_blur(1.0).resize(512, 512, 1, 1, 5).get_equalize(256);
-  }
+  sysctl(mib, 2, &numCPU, &len, nullptr, 0);
 
-  src.clear();
+  if(numCPU < 1) {
+    mib[1] = HW_NCPU;
+    sysctl(mib, 2, &numCPU, &len, nullptr, 0);
 
-  cimg_library::CImg<float>* pkernel = get_mh_kernel(alpha, lvl);
-  cimg_library::CImg<float> fresp = img.get_correlate(*pkernel);
-  img.clear();
-  fresp.normalize(0, 1.0);
-  cimg_library::CImg<float> blocks(31, 31, 1, 1, 0);
-
-  for (int rindex = 0; rindex < 31; rindex++) {
-    for (int cindex = 0; cindex < 31; cindex++) {
-      blocks(rindex, cindex) = static_cast<float>(fresp.get_crop(rindex * 16, cindex * 16, rindex * 16 + 16 - 1, cindex * 16 + 16 - 1).sum());
+    if(numCPU < 1) {
+      numCPU = 1;
     }
   }
 
-  int hash_index;
-  int nb_ones = 0, nb_zeros = 0;
-  int bit_index = 0;
-  unsigned char hashbyte = 0;
-
-  for (int rindex = 0; rindex < 31 - 2; rindex += 4) {
-    cimg_library::CImg<float> subsec;
-
-    for (int cindex = 0; cindex < 31 - 2; cindex += 4) {
-      subsec = blocks.get_crop(cindex, rindex, cindex + 2, rindex + 2).unroll('x');
-      float ave = static_cast<float>(subsec.mean());
-      cimg_forX(subsec, I) {
-        hashbyte <<= 1;
-
-        if (subsec(I) > ave) {
-          hashbyte |= 0x01;
-          nb_ones++;
-        } else {
-          nb_zeros++;
-        }
-
-        bit_index++;
-
-        if ((bit_index % 8) == 0) {
-          hash_index = static_cast<int>(bit_index / 8) - 1;
-          hash[hash_index] = hashbyte;
-          hashbyte = 0x00;
-        }
-      }
-    }
-  }
-
-  return hash;
+#endif
+  return numCPU;
 }
 
-double ph_mh_hammingdistance(uint8_t* hashA, int lenA, uint8_t* hashB, int lenB) {
-  if (lenA != lenB) {
-    return -1.0;
-  }
+void *ph_image_thread(void *p) {
+  auto s = static_cast<slice *>(p);
+  for(auto i = 0; i < s->n; ++i) {
+    auto dp = static_cast<DP *>(s->hash_p[i]);
+    uint64_t hash;
+    if (ph_dct_imagehash(dp->id, hash) < 0) {
 
-  if ((hashA == nullptr) || (hashB == nullptr) || (lenA <= 0)) {
-    return -1.0;
-  }
-
-  double dist = 0;
-  uint8_t D;
-
-  for (int i = 0; i < lenA; i++) {
-    D = hashA[i] ^ hashB[i];
-    dist = dist + static_cast<double>(ph_bitcount8(D));
-  }
-
-  double bits = static_cast<double>(lenA) * 8;
-  return dist / bits;
-}
-
-#if HAVE_PTHREAD
-
-void* ph_image_thread(void* p) {
-  slice* s = static_cast<slice*>(p);
-
-  for (int i = 0; i < s->n; ++i) {
-    DP* dp = static_cast<DP*>(s->hash_p[i]);
-    ulong64 hash;
-    int ret = ph_dct_imagehash(dp->id, hash);
-    dp->hash = static_cast<ulong64*>(malloc(sizeof(hash)));
-    if (ret == 0) {
-      memcpy(dp->hash, &hash, sizeof(hash));
-    } else {
-      memset(dp->hash, 0, sizeof(hash));
+      continue;
     }
+
+    dp->hash = static_cast<uint64_t*>(malloc(sizeof(hash)));
+    memcpy(dp->hash, &hash, sizeof(hash));
     dp->hash_length = 1;
   }
 
   return nullptr;
 }
 
-DP** ph_dct_image_hashes(char* files[], int count, int threads) {
-  if (!files || count <= 0)
+DP** ph_dct_image_hashes(char *files[], int count, int threads) {
+  if(!files || count <= 0)
     return nullptr;
 
   int num_threads;
-
-  if (threads > count) {
+  if(threads > count) {
     num_threads = count;
-  } else if (threads > 0) {
+  } else if(threads > 0) {
     num_threads = threads;
   } else {
     num_threads = ph_num_threads();
   }
 
-  DP** hashes = static_cast<DP**>(malloc(count * sizeof(DP*)));
+  auto hashes = static_cast<DP**>(malloc(count * sizeof(DP*)));
 
-  for (int i = 0; i < count; ++i) {
-    hashes[i] = static_cast<DP*>(malloc(sizeof(DP)));
+  for(auto i = 0; i < count; ++i) {
+    hashes[i] = static_cast<DP *>(malloc(sizeof(DP)));
     hashes[i]->id = strdup(files[i]);
   }
 
-  //    pthread_t thds[num_threads];
-  pthread_t thds[MAX_THREADS];
+  ASSERT(num_threads <= MAX_THREADS);
+  auto thds = std::array<pthread_t, MAX_THREADS>();
 
-  int rem = count % num_threads;
-  int start = 0;
-  int off;
-  slice* s = new slice[num_threads];
+  auto rem = count % num_threads;
+  auto start = 0;
+  auto s = new slice[num_threads];
 
-  // Create threads
-  for (int n = 0; n < num_threads; ++n) {
-    off = static_cast<int>(floor((count / static_cast<float>(num_threads)) + (rem > 0 ? num_threads - (count % num_threads) : 0)));
+  for(auto n = 0; n < num_threads; ++n) {
+    auto off = static_cast<int>(floor((count / static_cast<float>(num_threads)) + (rem > 0 ? num_threads - (count % num_threads) : 0)));
 
     s[n].hash_p = &hashes[start];
     s[n].n = off;
@@ -985,7 +540,7 @@ DP** ph_dct_image_hashes(char* files[], int count, int threads) {
     pthread_create(&thds[n], nullptr, ph_image_thread, &s[n]);
   }
 
-  for (int i = 0; i < num_threads; ++i) {
+  for(auto i = 0; i < num_threads; ++i) {
     pthread_join(thds[i], nullptr);
   }
 
@@ -996,100 +551,54 @@ DP** ph_dct_image_hashes(char* files[], int count, int threads) {
 
 #endif /* HAVE_PTHREAD */
 
-#if HAVE_VIDEO_HASH 
+#ifdef HAVE_VIDEO_HASH
 
-ulong64* ph_dct_videohash(const char* filename, int& length) {
-  cimg_library::CImgList<uint8_t>* keyframes = get_video_key_frames(filename);
-  if (keyframes == nullptr) {
-    length = 0;
+uint64_t* ph_dct_videohash(const char *filename, int &Length) {
+  auto keyframes = VideoProcessor::GetSceneChangeFrames(filename);
+  if(keyframes == nullptr) {
     return nullptr;
   }
 
-  length = keyframes->size();
+  Length = keyframes->size();
+  
+  auto hash = static_cast<uint64_t*>(malloc(sizeof(uint64_t)*Length));
+  auto C = ph_dct_matrix(32);
+  auto Ctransp = C->get_transpose();
+  CImageF dctImage;
+  CImageF subsec;
+  CImageI currentframe;
 
-  ulong64* hash = static_cast<ulong64*>(malloc(sizeof(ulong64) * length));
-  cimg_library::CImg<float>* C = ph_dct_matrix(32);
-  cimg_library::CImg<float> Ctransp = C->get_transpose();
-  cimg_library::CImg<float> dctImage;
-  cimg_library::CImg<float> subsec;
-  cimg_library::CImg<uint8_t> currentframe;
 
-  for (unsigned int i = 0; i < keyframes->size(); i++) {
+  for(unsigned int i = 0; i < keyframes->size(); i++) {
     currentframe = keyframes->at(i);
     currentframe.blur(1.0);
-    dctImage = (*C) * (currentframe) * Ctransp;
+    dctImage = (*C)*(currentframe)*Ctransp;
     subsec = dctImage.crop(1, 1, 8, 8).unroll('x');
-    float med = subsec.median();
+    auto med = subsec.median();
     hash[i] = 0x0000000000000000;
-    ulong64 one = 0x0000000000000001;
-
-    for (int j = 0; j < 64; j++) {
-      if (subsec(j) > med)
+    uint64_t one = 0x0000000000000001;
+    for(auto j = 0; j < 64; j++) {
+      if(subsec(j) > med)
         hash[i] |= one;
-
       one = one << 1;
     }
   }
 
   keyframes->clear();
-  delete keyframes;
-  // keyframes = nullptr;
   delete C;
-  // C = nullptr;
+
   return hash;
 }
 
-double ph_dct_videohash_dist(ulong64* hashA, int N1, ulong64* hashB, int N2, int threshold) {
-  int den = (N1 <= N2) ? N1 : N2;
-  // int* C = new int[N1 + 1][N2 + 1];
-  auto* m = new int[matrix_size(N1, N2)];
+#ifdef HAVE_PTHREAD
 
-  for (auto i = 0; i < N1 + 1; i++) {
-    // C[i][0] = 0;
-    m[matrix_pos(N1, i, 0)] = 0;
-  }
-
-  for (auto j = 0; j < N2 + 1; j++) {
-    //C[0][j] = 0;
-    m[matrix_pos(N1, 0, j)] = 0;
-  }
-
-  for (auto i = 1; i < N1 + 1; i++) {
-    for (auto j = 1; j < N2 + 1; j++) {
-      auto d = ph_hamming_distance(hashA[i - 1], hashB[j - 1]);
-
-      if (d <= threshold) {
-        //  C[i][j] = C[i - 1][j - 1] + 1;
-        m[matrix_pos(N1, i, j)] = m[matrix_pos(N1, i - 1, j - 1)] + 1;
-      } else {
-        // C[i][j] = ((C[i - 1][j] >= C[i][j - 1])) ? C[i - 1][j] : C[i][j - 1];
-        m[matrix_pos(N1, i, j)] =
-            ((m[matrix_pos(N1, i - 1, j)] >= m[matrix_pos(N1, i, j - 1)]))
-              ? m[matrix_pos(N1, i - 1, j)]
-              : m[matrix_pos(N1, i, j - 1)];
-      }
-    }
-  }
-
-  // double result = (double)(C[N1][N2]) / (double)(den);
-
-  auto result = static_cast<double>(m[matrix_pos(N1, N1, N2)]) / static_cast<double>(den);
-  delete[] m;
-
-  return result;
-}
-
-#if HAVE_PTHREAD
-
-void* ph_video_thread(void* p) {
-  slice* s = static_cast<slice*>(p);
-
-  for (int i = 0; i < s->n; ++i) {
-    DP* dp = static_cast<DP*>(s->hash_p[i]);
+void *ph_video_thread(void *p) {
+  auto s = static_cast<slice *>(p);
+  for(auto i = 0; i < s->n; ++i) {
+    auto dp = static_cast<DP *>(s->hash_p[i]);
     int N;
-    ulong64* hash = ph_dct_videohash(dp->id, N);
-
-    if (hash) {
+    auto hash = ph_dct_videohash(dp->id, N);
+    if(hash) {
       dp->hash = hash;
       dp->hash_length = N;
     } else {
@@ -1097,38 +606,38 @@ void* ph_video_thread(void* p) {
       dp->hash_length = 0;
     }
   }
+
   return nullptr;
 }
 
-DP** ph_dct_video_hashes(char* files[], int count, int threads) {
-  if (!files || count <= 0)
+DP** ph_dct_video_hashes(char *files[], int count, int threads) {
+  if(!files || count <= 0)
     return nullptr;
 
-  DP** hashes = static_cast<DP**>(malloc(count * sizeof(DP*)));
-
-  for (int i = 0; i < count; ++i) {
-    hashes[i] = static_cast<DP*>(malloc(sizeof(DP)));
-    hashes[i]->id = strdup(files[i]);
-  }
-
-  pthread_t thds[MAX_THREADS];
-
   int num_threads;
-  if (threads > count) {
+  if(threads > count) {
     num_threads = count;
-  } else if (threads > 0) {
+  } else if(threads > 0) {
     num_threads = threads;
   } else {
     num_threads = ph_num_threads();
   }
 
-  int rem = count % num_threads;
-  int start = 0;
-  int off;
-  slice* s = new slice[num_threads];
+  auto hashes = static_cast<DP**>(malloc(count * sizeof(DP*)));
 
-  for (int n = 0; n < num_threads; ++n) {
-    off = static_cast<int>(floor((count / static_cast<float>(num_threads)) + (rem > 0 ? num_threads - (count % num_threads) : 0)));
+  for(auto i = 0; i < count; ++i) {
+    hashes[i] = static_cast<DP *>(malloc(sizeof(DP)));
+    hashes[i]->id = strdup(files[i]);
+  }
+
+  ASSERT(num_threads <= MAX_THREADS);
+  auto thds = new pthread_t[num_threads];
+
+  auto rem = count % num_threads;
+  auto start = 0;
+  auto s = new slice[num_threads];
+  for(auto n = 0; n < num_threads; ++n) {
+    auto off = static_cast<int>(floor((count / static_cast<float>(num_threads)) + (rem>0 ? num_threads - (count % num_threads) : 0)));
 
     s[n].hash_p = &hashes[start];
     s[n].n = off;
@@ -1138,131 +647,247 @@ DP** ph_dct_video_hashes(char* files[], int count, int threads) {
     pthread_create(&thds[n], nullptr, ph_video_thread, &s[n]);
   }
 
-  for (int i = 0; i < num_threads; ++i) {
+  for(auto i = 0; i < num_threads; ++i) {
     pthread_join(thds[i], nullptr);
   }
 
   delete[] s;
+  delete[] thds;
 
   return hashes;
 }
 
 #endif /* HAVE_PTHREAD */
 
+inline int matrix_size(int zx, int zy) {
+  return (((zx)+1) * ((zy)+1));
+}
+
+inline int matrix_pos(int zx, int x, int y) {
+  return ((x) * (((zx)+1) + (y)));
+}
+
+double ph_dct_videohash_dist(uint64_t* hashA, int N1, uint64_t* hashB, int N2, int threshold) {
+  int den = (N1 <= N2) ? N1 : N2;
+  auto* m = new int[matrix_size(N1, N2)];
+
+  for(auto i = 0; i < N1 + 1; i++) {
+    m[matrix_pos(N1, i, 0)] = 0;
+  }
+
+  for(auto j = 0; j < N2 + 1; j++) {
+    m[matrix_pos(N1, 0, j)] = 0;
+  }
+
+  for(auto i = 1; i < N1 + 1; i++) {
+    for(auto j = 1; j < N2 + 1; j++) {
+      auto d = ph_hamming_distance(hashA[i - 1], hashB[j - 1]);
+
+      if(d <= threshold) {
+        m[matrix_pos(N1, i, j)] = m[matrix_pos(N1, i - 1, j - 1)] + 1;
+      } else {
+        m[matrix_pos(N1, i, j)] =
+          ((m[matrix_pos(N1, i - 1, j)] >= m[matrix_pos(N1, i, j - 1)]))
+          ? m[matrix_pos(N1, i - 1, j)]
+          : m[matrix_pos(N1, i, j - 1)];
+      }
+    }
+  }
+
+  auto result = static_cast<double>(m[matrix_pos(N1, N1, N2)]) / static_cast<double>(den);
+  delete[] m;
+
+  return result;
+}
+
 #endif /* HAVE_VIDEO_HASH */
 
 #endif /* HAVE_IMAGE_HASH */
 
-TxtHashPoint* ph_texthash(const char* filename, int* nbpoints) {
+int ph_hamming_distance(const uint64_t hash1, const uint64_t hash2) {
+  uint64_t x = hash1^hash2;
+  const uint64_t m1 = 0x5555555555555555ULL;
+  const uint64_t m2 = 0x3333333333333333ULL;
+  const uint64_t h01 = 0x0101010101010101ULL;
+  const uint64_t m4 = 0x0f0f0f0f0f0f0f0fULL;
+  x -= (x >> 1) & m1;
+  x = (x & m2) + ((x >> 2) & m2);
+  x = (x + (x >> 4)) & m4;
+  return (x * h01) >> 56;
+}
+
+DP* ph_malloc_datapoint(int hashtype) {
+  auto dp = static_cast<DP*>(malloc(sizeof(DP)));
+  dp->hash = nullptr;
+  dp->id = nullptr;
+  dp->hash_type = hashtype;
+  return dp;
+}
+
+void ph_free_datapoint(DP *dp) {
+  if(!dp) {
+    return;
+  }
+  free(dp);
+
+  return;
+}
+
+char** ph_readfilenames(const char *dirname, int &count) {
+  count = 0;
+  struct dirent *dir_entry;
+  auto dir = opendir(dirname);
+  if(!dir)
+    return nullptr;
+
+  /*count files */
+  while((dir_entry = readdir(dir)) != nullptr) {
+    if(strcmp(dir_entry->d_name, ".") && strcmp(dir_entry->d_name, ".."))
+      count++;
+  }
+
+  /* alloc list of files */
+  char** files = static_cast<char**>(malloc(count * sizeof(*files)));
+  if(!files)
+    return nullptr;
+
+  errno = 0;
+  auto index = 0;
+  char path[1024];
+  path[0] = '\0';
+  rewinddir(dir);
+  while((dir_entry = readdir(dir)) != nullptr) {
+    if(strcmp(dir_entry->d_name, ".") && strcmp(dir_entry->d_name, "..")) {
+      strcat(path, dirname);
+      strcat(path, "/");
+      strcat(path, dir_entry->d_name);
+      files[index++] = strdup(path);
+    }
+    path[0] = '\0';
+  }
+  if(errno)
+    return nullptr;
+  closedir(dir);
+  return files;
+}
+
+int ph_bitcount8(uint8_t val) {
+  auto num = 0;
+  while(val) {
+    ++num;
+    val &= val - 1;
+  }
+
+  return num;
+}
+
+double ph_hammingdistance2(uint8_t *hashA, int lenA, uint8_t *hashB, int lenB) {
+  if(lenA != lenB) {
+    return -1.0;
+  }
+  if((hashA == nullptr) || (hashB == nullptr) || (lenA <= 0)) {
+    return -1.0;
+  }
+  double dist = 0;
+  for(auto i = 0; i < lenA; i++) {
+    uint8_t D = hashA[i] ^ hashB[i];
+    dist = dist + double(ph_bitcount8(D));
+  }
+
+  auto bits = static_cast<double>(lenA) * 8;
+  return dist / bits;
+}
+
+TxtHashPoint* ph_texthash(const char *filename, int *nbpoints) {
   int count;
-  TxtHashPoint* TxtHash;
+  TxtHashPoint *TxtHash;
   TxtHashPoint WinHash[WindowLength];
   char kgram[KgramLength];
 
-  FILE* pfile = fopen(filename, "r");
-
-  if (!pfile) {
+  auto pfile = fopen(filename, "r");
+  if(!pfile) {
     return nullptr;
   }
-
   struct stat fileinfo;
-
   fstat(fileno(pfile), &fileinfo);
-
   count = fileinfo.st_size - WindowLength + 1;
-
-  count = static_cast<int>(0.01 * count);
-
+  count = static_cast<int>(0.01*count);
   int d;
-
-  ulong64 hashword = 0ULL;
+  uint64_t hashword = 0ULL;
 
   TxtHash = static_cast<TxtHashPoint*>(malloc(count * sizeof(struct ph_hash_point)));
-
-  if (!TxtHash) {
+  if(!TxtHash) {
     return nullptr;
   }
-
   *nbpoints = 0;
   int i, first = 0, last = KgramLength - 1;
   int text_index = 0;
   int win_index = 0;
-
-  for (i = 0; i < KgramLength; i++) { /* calc first kgram */
+  for(i = 0; i < KgramLength; i++) {    /* calc first kgram */
     d = fgetc(pfile);
-
-    if (d == EOF) {
+    if(d == EOF) {
       free(TxtHash);
       return nullptr;
     }
-
-    if (d <= 47) /*skip cntrl chars*/
+    if(d <= 47)         /*skip cntrl chars*/
       continue;
-
-    if (((d >= 58) && (d <= 64)) || ((d >= 91) && (d <= 96)) || (d >= 123)) /*skip punct*/
+    if(((d >= 58) && (d <= 64)) || ((d >= 91) && (d <= 96)) || (d >= 123)) /*skip punct*/
       continue;
-
-    if ((d >= 65) && (d <= 90)) /*convert upper to lower case */
+    if((d >= 65) && (d <= 90))       /*convert upper to lower case */
       d = d + 32;
 
     kgram[i] = static_cast<char>(d);
-    hashword = hashword << delta; /* rotate left or shift left ??? */
-    hashword = hashword ^ textkeys[d]; /* right now, rotate breaks it */
+    hashword = hashword << delta;   /* rotate left or shift left ??? */
+    hashword = hashword^textkeys[d];/* right now, rotate breaks it */
   }
 
   WinHash[win_index].hash = hashword;
   WinHash[win_index++].index = text_index;
   struct ph_hash_point minhash;
-  minhash.hash = ULLONG_MAX ;
+  minhash.hash = ULLONG_MAX;
   minhash.index = 0;
   struct ph_hash_point prev_minhash;
-  prev_minhash.hash = ULLONG_MAX ;
+  prev_minhash.hash = ULLONG_MAX;
   prev_minhash.index = 0;
 
-  while ((d = fgetc(pfile)) != EOF) { /*remaining kgrams */
+  while((d = fgetc(pfile)) != EOF) {    /*remaining kgrams */
     text_index++;
-
-    if (d == EOF) {
+    if(d == EOF) {
       free(TxtHash);
       return nullptr;
     }
-
-    if (d <= 47) /*skip cntrl chars*/
+    if(d <= 47)         /*skip cntrl chars*/
       continue;
-
-    if (((d >= 58) && (d <= 64)) || ((d >= 91) && (d <= 96)) || (d >= 123)) /*skip punct*/
+    if(((d >= 58) && (d <= 64)) || ((d >= 91) && (d <= 96)) || (d >= 123)) /*skip punct*/
       continue;
-
-    if ((d >= 65) && (d <= 90)) /*convert upper to lower case */
+    if((d >= 65) && (d <= 90))       /*convert upper to lower case */
       d = d + 32;
 
-    ulong64 oldsym = textkeys[kgram[first % KgramLength]];
+    uint64_t oldsym = textkeys[kgram[first%KgramLength]];
 
     /* rotate or left shift ??? */
     /* right now, rotate breaks it */
-    oldsym = oldsym << delta * KgramLength;
+    oldsym = oldsym << delta*KgramLength;
     hashword = hashword << delta;
-    hashword = hashword ^ textkeys[d];
-    hashword = hashword ^ oldsym;
-    kgram[last % KgramLength] = static_cast<char>(d);
+    hashword = hashword^textkeys[d];
+    hashword = hashword^oldsym;
+    kgram[last%KgramLength] = static_cast<char>(d);
     first++;
     last++;
 
-    WinHash[win_index % WindowLength].hash = hashword;
-    WinHash[win_index % WindowLength].index = text_index;
+    WinHash[win_index%WindowLength].hash = hashword;
+    WinHash[win_index%WindowLength].index = text_index;
     win_index++;
 
-    if (win_index >= WindowLength) {
-      minhash.hash = ULLONG_MAX ;
-
-      for (i = win_index; i < win_index + WindowLength; i++) {
-        if (WinHash[i % WindowLength].hash <= minhash.hash) {
-          minhash.hash = WinHash[i % WindowLength].hash;
-          minhash.index = WinHash[i % WindowLength].index;
+    if(win_index >= WindowLength) {
+      minhash.hash = ULLONG_MAX;
+      for(i = win_index; i<win_index + WindowLength; i++) {
+        if(WinHash[i%WindowLength].hash <= minhash.hash) {
+          minhash.hash = WinHash[i%WindowLength].hash;
+          minhash.index = WinHash[i%WindowLength].index;
         }
       }
-
-      if (minhash.hash != prev_minhash.hash) {
+      if(minhash.hash != prev_minhash.hash) {
         TxtHash[(*nbpoints)].hash = minhash.hash;
         TxtHash[(*nbpoints)++].index = minhash.index;
         prev_minhash.hash = minhash.hash;
@@ -1272,7 +897,6 @@ TxtHashPoint* ph_texthash(const char* filename, int* nbpoints) {
         TxtHash[*nbpoints].hash = prev_minhash.hash;
         TxtHash[(*nbpoints)++].index = prev_minhash.index;
       }
-
       win_index = 0;
     }
   }
@@ -1281,28 +905,24 @@ TxtHashPoint* ph_texthash(const char* filename, int* nbpoints) {
   return TxtHash;
 }
 
-TxtMatch* ph_compare_text_hashes(TxtHashPoint* hash1, int N1, TxtHashPoint* hash2, int N2, int* nbmatches) {
-  int max_matches = (N1 >= N2) ? N1 : N2;
-  TxtMatch* found_matches = static_cast<TxtMatch*>(malloc(max_matches * sizeof(TxtMatch)));
-
-  if (!found_matches) {
+TxtMatch* ph_compare_text_hashes(TxtHashPoint *hash1, int N1, TxtHashPoint *hash2, int N2, int *nbmatches) {
+  auto max_matches = (N1 >= N2) ? N1 : N2;
+  auto found_matches = static_cast<TxtMatch*>(malloc(max_matches * sizeof(TxtMatch)));
+  if(!found_matches) {
     return nullptr;
   }
 
   *nbmatches = 0;
   int i, j;
-
-  for (i = 0; i < N1; i++) {
-    for (j = 0; j < N2; j++) {
-      if (hash1[i].hash == hash2[j].hash) {
-        int m = i + 1;
-        int n = j + 1;
-        int cnt = 1;
-
-        while ((m < N1) && (n < N2) && (hash1[m++].hash == hash2[n++].hash)) {
+  for(i = 0; i<N1; i++) {
+    for(j = 0; j<N2; j++) {
+      if(hash1[i].hash == hash2[j].hash) {
+        auto m = i + 1;
+        auto n = j + 1;
+        auto cnt = 1;
+        while((m < N1) && (n < N2) && (hash1[m++].hash == hash2[n++].hash)) {
           cnt++;
         }
-
         found_matches[*nbmatches].first_index = i;
         found_matches[*nbmatches].second_index = j;
         found_matches[*nbmatches].length = cnt;
@@ -1310,6 +930,6 @@ TxtMatch* ph_compare_text_hashes(TxtHashPoint* hash1, int N1, TxtHashPoint* hash
       }
     }
   }
-
   return found_matches;
 }
+

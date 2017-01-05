@@ -22,7 +22,7 @@
 
 */
 
-#include "phashconfig.h"
+#include "config.h"
 #if HAVE_AUDIO_HASH
 
 #include "audiophash.h"
@@ -41,7 +41,7 @@
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
 #endif /* Def WIN32 or Def WIN64 */
-#include <phash.h>
+#include "phash.h"
 
 extern "C" {
 #include "ph_fft.h"

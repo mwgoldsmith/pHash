@@ -25,6 +25,7 @@
 #ifndef AUDIO_PHASH_H
 #define AUDIO_PHASH_H
 
+#include "config.h"
 #if HAVE_AUDIO_HASH
 
 #include "phash.h"

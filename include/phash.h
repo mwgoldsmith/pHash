@@ -22,209 +22,256 @@
 
 */
 
-#ifndef _PHASH_H
-#define _PHASH_H
+#ifndef PHASH_H_
+#define PHASH_H_
 
-#include "phashconfig.h"
-
-#define __STDC_CONSTANT_MACROS
-
-#include <limits.h>
-#include <math.h>
-#include <sys/types.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <string.h>
+#include <vector>
+#include <memory>
 
-#if !defined(__GLIBC__) && !defined(_WIN32)
-#include <sys/param.h>
-#include <sys/sysctl.h>
+#if defined(_WINDOWS) || defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__)
+#  ifndef PHASHAPI
+#    define PHASHAPI       _cdecl
+#  endif
+#  if defined(PHASH_DLL_EXPORT)
+#    define PHASHEXPORT    __declspec(dllexport)
+#  elif defined(PHASH_DLL_IMPORT)
+#    define PHASHEXPORT    __declspec(dllimport)
+#  endif
+#endif 
+
+#ifndef PHASHAPI
+#  define PHASHAPI  
+#endif
+#ifndef PHASHEXPORT
+#  define PHASHEXPORT      extern 
 #endif
 
+#define STRINGIZE_(x)      #x
+#define STRINGIZE(x)       STRINGIZE_(x)
 
-#ifndef ULLONG_MAX
-#define ULLONG_MAX 18446744073709551615ULL
+#define WIDE_(s)           L ## s
+#define WIDE(s)            WIDE_(s)
+
+#define CONCATENATE_(a, b) a ## b
+#define CONCATENATE(a, b)  CONCATENATE_(a, b)
+
+#if defined(_MSC_VER)
+#  define WARNING(msg)      __pragma(message(__FILE__ "("STRINGIZE(__LINE__)") : Warning Msg: "STRINGIZE(msg)))
+#elif defined(__GNUC__) || defined(__clang__)
+#  define WARNING(msg)     (void)(msg)
 #endif
 
-#define ROUNDING_FACTOR(x) (((x) >= 0) ? 0.5 : -0.5)
-
-//#if defined( _MSC_VER) || defined(_BORLANDC_)
-#ifndef _WIN32
-typedef unsigned _uint64 ulong64;
-typedef signed _int64 long64;
+#ifdef _DEBUG
+#  include <crtdbg.h>
+#  define ASSERT(e)        ( _ASSERT(e) )
+#elif !defined(__clang__)
+#  define ASSERT(e)        ( __assume(e) )
 #else
-typedef unsigned long long ulong64;
-typedef signed long long long64;
+#  define ASSERT(e)        (void)(e)
 #endif
+
+#define NOEXCEPT           noexcept
+#define NOEXCEPT_OP(x)     noexcept(x)
+
+#ifndef M_PI
+#define M_PI               3.1415926535897932
+#endif
+#define SQRT_TWO           1.4142135623730950488016887242097
+
+#define ROUNDING_FACTOR(x) (((x) >= 0) ? 0.5 : -0.5) 
+
+/* structure for a single hash */
+typedef struct ph_datapoint {
+  char* id;
+  void* hash;
+  float* path;
+  uint32_t hash_length;
+  uint8_t hash_type;
+} DP;
+
+/*
+* @brief feature vector info
+*/
+typedef struct ph_feature_vector {
+  double *features;           //the head of the feature array of double's
+  int size;                   //the size of the feature array
+} Features;
+
+/*
+* @brief Digest info
+*/
+typedef struct ph_digest {
+  char *id;                   //hash id
+  uint8_t *coeffs;            //the head of the digest integer coefficient array
+  int size;                   //the size of the coeff array
+} Digest;
+
+typedef struct ph_hash_point {
+  uint64_t hash;
+  off_t index; /*pos of hash in orig file */
+} TxtHashPoint;
+
+typedef struct ph_match {
+  off_t first_index;  /* offset into first file */
+  off_t second_index; /* offset into second file */
+  uint32_t length;    /*length of match between 2 files */
+} TxtMatch;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
- /* structure for a single hash */
-typedef  struct ph_datapoint {
-    char* id;
-    void* hash;
-    float* path;
-    uint32_t hash_length;
-    uint8_t hash_type;
-  } DP;
-
-/* variables for textual hash */
-const int KgramLength = 50;
-const int WindowLength = 100;
-const int delta = 1;
-
-typedef struct ph_hash_point {
-    ulong64 hash;
-    off_t index; /*pos of hash in orig file */
-} TxtHashPoint;
-
-typedef struct ph_match {
-    off_t first_index; /* offset into first file */
-    off_t second_index; /* offset into second file */
-    uint32_t length;    /*length of match between 2 files */
-} TxtMatch;
-
-/*! /brief copyright information
+/*
+* @brief copyright information
 */
 const char* ph_about();
 
-/** /brief get all the filenames in specified directory
-*  /param dirname - string value for path and filename
-*  /param cap - int value for upper limit to number of files
-*  /param count - int value for number of file names returned
-*  /return array of pointers to string file names (NULL for error)
+/*
+* @brief get all the filenames in specified directory
+* @param dirname - string value for path and filename
+* @param cap - int value for upper limit to number of files
+* @param count - int value for number of file names returned
+* @return array of pointers to string file names (NULL for error)
 **/
 char** ph_readfilenames(const char* dirname, int &count);
 
-/* /brief alloc a single data point
- *  allocates path array, does nto set id or path
- */
-DP* ph_malloc_datapoint(int hashtype);
+#ifdef HAVE_PTHREAD
 
-/** /brief free a datapoint and its path
- *
- */
-void ph_free_datapoint(DP* dp);
-
-#if HAVE_IMAGE_HASH
-
-/*! /brief Digest info
+/*
+* Allocates path array, does not set id or path
+*
+* @brief alloc a single data point
 */
-typedef struct ph_digest {
-  char* id;                   //hash id
-  uint8_t* coeffs;            //the head of the digest integer coefficient array
-  int size;                   //the size of the coeff array
-} Digest;
+PHASHEXPORT DP* ph_malloc_datapoint(int hashtype);
 
-/*! /brief image digest
- *  Compute the image digest given the file name.
- *  /param file - string value for file name of input image.
- *  /param sigma - double value for the deviation for gaussian filter
- *  /param gamma - double value for gamma correction on the input image.
- *  /param digest - Digest struct
- *  /param N      - int value for number of angles to consider
+/*
+* @brief free a datapoint and its path
+*/
+PHASHEXPORT void ph_free_datapoint(DP* dp);
+
+#ifdef HAVE_IMAGE_HASH
+PHASHEXPORT DP** ph_dct_image_hashes(char* files[], int count, int threads);
+#endif
+
+#ifdef HAVE_VIDEO_HASH
+PHASHEXPORT DP** ph_dct_video_hashes(char* files[], int count, int threads = 0);
+#endif
+
+#endif /* HAVE_PTHREAD */
+
+#ifdef HAVE_IMAGE_HASH
+
+/*
+*  Compute the image digest given the file name.
+*
+* @brief image digest
+* @param file - string value for file name of input image.
+* @param sigma - double value for the deviation for gaussian filter
+* @param gamma - double value for gamma correction on the input image.
+* @param digest - Digest struct
+* @param N      - int value for number of angles to consider
  */
 PHASHEXPORT int ph_image_digest(const char* file, double sigma, double gamma, Digest &digest, int N = 180);
 
-/*! /brief cross correlation for 2 series
+/*
 *  Compute the cross correlation of two series vectors
-*  /param x - Digest struct
-*  /param y - Digest struct
-*  /param pcc - double value the peak of cross correlation
-*  /param threshold - double value for the threshold value for which 2 images
+*
+* @brief cross correlation for 2 series
+* @param x - Digest struct
+* @param y - Digest struct
+* @param pcc - double value the peak of cross correlation
+* @param threshold - double value for the threshold value for which 2 images
 *                     are considered the same or different.
-*  /return - int value - 1 (true) for same, 0 (false) for different, < 0 for error
+* @return - int value - 1 (true) for same, 0 (false) for different, < 0 for error
 */
 PHASHEXPORT int ph_crosscorr(const Digest &x, const Digest &y, double &pcc, double threshold = 0.90);
 
-/*! /brief compare 2 images
- *  Compare 2 images given the file names
- *  /param file1 - char string of first image file
- *  /param file2 - char string of second image file
- *  /param pcc   - (out) double value for peak of cross correlation
- *  /param sigma - double value for deviation of gaussian filter
- *  /param gamma - double value for gamma correction of images
- *  /param N     - int number for number of angles
- *  /return int 0 (false) for different image, 1 (true) for same images, less than 0 for error
+/*
+*  Compare 2 images given the file names
+*
+* @brief compare 2 images
+* @param file1 - char string of first image file
+* @param file2 - char string of second image file
+* @param pcc   - (out) double value for peak of cross correlation
+* @param sigma - double value for deviation of gaussian filter
+* @param gamma - double value for gamma correction of images
+* @param N     - int number for number of angles
+* @return int 0 (false) for different image, 1 (true) for same images, less than 0 for error
  */
 PHASHEXPORT int ph_compare_images(const char* file1, const char* file2, double &pcc, double sigma = 3.5, double gamma = 1.0, int N = 180, double threshold = 0.90);
 
-/*! /brief compute dct robust image hash
- *  /param file string variable for name of file
- *  /param hash of type ulong64 (must be 64-bit variable)
- *  /return int value - -1 for failure, 1 for success
+/*
+* @brief compute dct robust image hash
+* @param file string variable for name of file
+* @param hash of type uint64_t (must be 64-bit variable)
+* @return int value - -1 for failure, 1 for success
  */
-PHASHEXPORT int ph_dct_imagehash(const char* file, ulong64 &hash);
+PHASHEXPORT int ph_dct_imagehash(const char* file, uint64_t &hash);
 
-/* ! /brief dct video robust hash
-*   Compute video hash based on the dct of normalized video 32x32x64 cube
-*   /param file name of file
-*   /param hash ulong64 value for hash value
-*   /return int value - less than 0 for error
-*/
-PHASHEXPORT int ph_hamming_distance(const ulong64 hash1, const ulong64 hash2);
-
-/** /brief create MH image hash for filename image
-*   /param filename - string name of image file
-*   /param N - (out) int value for length of image hash returned
-*   /param alpha - int scale factor for marr wavelet (default=2)
-*   /param lvl   - int level of scale factor (default = 1)
-*   /return uint8_t array
+/*
+* @brief create MH image hash for filename image
+* @param filename - string name of image file
+* @param N - (out) int value for length of image hash returned
+* @param alpha - int scale factor for marr wavelet (default=2)
+* @param lvl   - int level of scale factor (default = 1)
+* @return uint8_t array
 **/
 PHASHEXPORT uint8_t* ph_mh_imagehash(const char* filename, int &N, float alpha = 2.0f, float lvl = 1.0f);
 
-/** /brief compute hamming distance between two byte arrays
-*  /param hashA - byte array for first hash
-*  /param lenA - int length of hashA
-*  /param hashB - byte array for second hash
-*  /param lenB - int length of hashB
-*  /return double value for normalized hamming distance
+/*
+* @brief compute hamming distance between two byte arrays
+* @param hashA - byte array for first hash
+* @param lenA - int length of hashA
+* @param hashB - byte array for second hash
+* @param lenB - int length of hashB
+* @return double value for normalized hamming distance
 **/
 PHASHEXPORT double ph_mh_hammingdistance(uint8_t* hashA, int lenA, uint8_t* hashB, int lenB);
 
-#if HAVE_PTHREAD
+#endif /* HAVE_IMAGE_HASH */
 
-PHASHEXPORT DP** ph_dct_image_hashes(char* files[], int count, int threads);
+/*
+* Compute video hash based on the dct of normalized video 32x32x64 cube
+*
+* @brief dct video robust hash
+* @param file name of file
+* @param hash uint64_t value for hash value
+* @return int value - less than 0 for error
+*/
+PHASHEXPORT int ph_hamming_distance(const uint64_t hash1, const uint64_t hash2);
 
-#endif /* HAVE_PTHREAD */
+#ifdef HAVE_VIDEO_HASH
 
-#if HAVE_VIDEO_HASH
+PHASHEXPORT uint64_t* ph_dct_videohash(const char* filename, int &Length);
 
-PHASHEXPORT ulong64* ph_dct_videohash(const char* filename, int &Length);
-
-PHASHEXPORT double ph_dct_videohash_dist(ulong64* hashA, int N1, ulong64* hashB, int N2, int threshold = 21);
-
-#if HAVE_PTHREAD
-
-PHASHEXPORT DP** ph_dct_video_hashes(char* files[], int count, int threads = 0);
-
-#endif /* HAVE_PTHREAD */
+PHASHEXPORT double ph_dct_videohash_dist(uint64_t* hashA, int N1, uint64_t* hashB, int N2, int threshold = 21);
 
 #endif /* HAVE_VIDEO_HASH */
 
-#endif /* HAVE_IMAGE_HASH */
+/*
+* @brief textual hash for file
+* @param filename - char* name of file
+* @param nbpoints - int length of array of return value (out)
+* @return TxtHashPoint* array of hash points with respective index into file.
+*/
+PHASHEXPORT TxtHashPoint* ph_texthash(const char* filename, int* nbpoints);
 
-/** /brief textual hash for file
- *  /param filename - char* name of file
- *  /param nbpoints - int length of array of return value (out)
- *  /return TxtHashPoint* array of hash points with respective index into file.
- **/
-TxtHashPoint* ph_texthash(const char* filename, int* nbpoints);
-
-/** /brief compare 2 text hashes
- *  /param hash1 -TxtHashPoint
- *  /param N1 - int length of hash1
- *  /param hash2 - TxtHashPoint
- *  /param N2 - int length of hash2
- *  /param nbmatches - int number of matches found (out)
- *  /return TxtMatch* - list of all matches
- **/
-TxtMatch* ph_compare_text_hashes(TxtHashPoint* hash1, int N1, TxtHashPoint* hash2, int N2, int* nbmatches);
+/*
+* @brief compare 2 text hashes
+* @param hash1 -TxtHashPoint
+* @param N1 - int length of hash1
+* @param hash2 - TxtHashPoint
+* @param N2 - int length of hash2
+* @param nbmatches - int number of matches found (out)
+* @return TxtMatch* - list of all matches
+*/
+PHASHEXPORT TxtMatch* ph_compare_text_hashes(TxtHashPoint* hash1, int N1, TxtHashPoint* hash2, int N2, int* nbmatches);
 
 /* random char mapping for textual hash */
-
-static const ulong64 textkeys[256] = {
+static const uint64_t textkeys[256] = {
     15498727785010036736ULL,
     7275080914684608512ULL,
     14445630958268841984ULL,
@@ -487,4 +534,4 @@ static const ulong64 textkeys[256] = {
 }
 #endif
 
-#endif
+#endif /* PHASH_H_ */

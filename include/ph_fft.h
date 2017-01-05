@@ -26,8 +26,6 @@
 #ifndef FFT_H
 #define FFT_H
 
-#define M_PI 3.1415926535897932
-
 struct complex;
 
 int fft(const double* x, const int N, complex* X);

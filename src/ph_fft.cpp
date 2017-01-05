@@ -23,6 +23,12 @@ David Starkweather - dstarkweather@phash.org
 */
 
 #include "ph_fft.h"
+
+#include <stdint.h>
+#include <sys/types.h>
+#include <string.h>
+#include <vector>
+#include <memory>
 #include <math.h>
 
 struct complex {
