@@ -1,10 +1,8 @@
-#pragma once
+#ifndef VIDEOPROCESSOR_H
+#define VIDEOPROCESSOR_H
 
-#include <stdint.h>
-#include <sys/types.h>
-#include <string.h>
+#include <cstdint>
 #include <vector>
-#include <memory>
 
 #include "internal.h"
 #include "MediaContext.h"
@@ -26,3 +24,5 @@ public:
 private:
   MediaContextPtr m_pContext;
 };
+
+#endif /* VIDEOPROCESSOR_H */

@@ -25,7 +25,7 @@
 #ifndef PHASH_H_
 #define PHASH_H_
 
-#include <stdint.h>
+#include <cstdint>
 #include <sys/types.h>
 #include <string.h>
 #include <vector>

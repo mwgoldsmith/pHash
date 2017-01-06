@@ -214,7 +214,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -260,7 +260,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -299,7 +299,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -338,7 +338,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -379,7 +379,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -420,7 +420,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -466,7 +466,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -512,7 +512,7 @@ SETLOCAL EnableDelayedExpansion EnableExtensions
 MKDIR "$(OutDir)..\..\include"
 MKDIR "$(OutDir)..\..\include\$(ProjectName)"
 
-FOR %%H IN (phash.h phashconfig.h common.h callbacks.h) DO (
+FOR %%H IN (phash.h callbacks.h) DO (
   SET "_HEADER=%%H"
   COPY "$(ProjectDir)..\..\include\!_HEADER!" "$(OutDir)..\..\include\$(ProjectName)"
 )
@@ -529,17 +529,17 @@ ENDLOCAL</Command>
     <ClCompile Include="..\..\src\phash.cpp" />
     <ClCompile Include="..\..\src\ph_fft.cpp" />
     <ClCompile Include="..\..\src\VideoProcessor.cpp" />
-    <ClCompile Include="callbacks.cpp" />
+    <ClCompile Include="..\..\src\callbacks.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\audiophash.h" />
     <ClInclude Include="..\..\include\MediaContext.h" />
     <ClInclude Include="..\..\include\phash.h" />
-    <ClInclude Include="..\..\include\phashconfig.h" />
+    <ClInclude Include="..\..\config.h" />
     <ClInclude Include="..\..\include\ph_fft.h" />
     <ClInclude Include="..\..\include\VideoProcessor.h" />
-    <ClInclude Include="callbacks.h" />
-    <ClInclude Include="common.h" />
+    <ClInclude Include="..\..\include\callbacks.h" />
+    <ClInclude Include="..\..\include\internal.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

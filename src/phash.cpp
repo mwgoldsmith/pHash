@@ -25,7 +25,7 @@ D Grant Starkweather - dstarkweather@phash.org
 #include "internal.h"
 #include "phash.h"
 
-#include <stdint.h>
+#include <cstdint>
 #include <sys/types.h>
 #include <string.h>
 #include <vector>
@@ -38,13 +38,11 @@ D Grant Starkweather - dstarkweather@phash.org
 #include <sys/sysctl.h>
 #endif
 #include "callbacks.h"
-#include "MediaContext.h"
-#include "VideoProcessor.h"
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
 #ifdef HAVE_VIDEO_HASH
-#include "cimgffmpeg.h"
+#include "VideoProcessor.h"
 #endif
 
 /* variables for textual hash */

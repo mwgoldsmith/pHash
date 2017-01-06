@@ -1,9 +1,7 @@
-#pragma once
+#ifndef MEDIACONTEXT_H
+#define MEDIACONTEXT_H
 
-#include <stdint.h>
-#include <sys/types.h>
-#include <string.h>
-#include <vector>
+#include <cstdint>
 #include <memory>
 
 #include "internal.h"
@@ -95,3 +93,5 @@ private:
   bool             m_isFrameFinished;
   const char*      m_filename;
 };
+
+#endif /* MEDIACONTEXT_H */
