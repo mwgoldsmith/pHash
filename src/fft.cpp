@@ -22,13 +22,8 @@ David Starkweather - dstarkweather@phash.org
 
 */
 
-#include "ph_fft.h"
+#include "fft.h"
 
-#include <stdint.h>
-#include <sys/types.h>
-#include <string.h>
-#include <vector>
-#include <memory>
 #include <math.h>
 
 struct complex {
@@ -59,7 +54,7 @@ inline complex polar_to_complex(const double r, const double theta) {
   return complex(r * cos(theta), r * sin(theta));
 }
 
-inline void fft_calc(const int N, const double* x, complex* X, complex* P, const int step, const  complex* twids) {
+inline void fft_calc(const int N, const double* x, complex* X, complex* P, const int step, const complex* twids) {
   int k;
   complex* S = P + N / 2;
 

@@ -22,19 +22,17 @@
 
 */
 
-#include "config.h"
+#include "internal.h"
 #if HAVE_AUDIO_HASH
 
-#include "audiophash.h"
-#include <limits.h>
-#include <math.h>
+#include "audiohash.h"
 //#include <unistd.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <sndfile.h.in>
 #include <samplerate.h>
 
-#if HAVE_PTHREAD
+#if defined(HAVE_PTHREAD)
 #include <pthread.h>
 #endif
 
@@ -44,7 +42,7 @@
 #include "phash.h"
 
 extern "C" {
-#include "ph_fft.h"
+#include "fft.h"
 }
 
 #if HAVE_LIBMPG123
@@ -280,11 +278,11 @@ uint32_t* ph_audiohash(float *buf, int N, int sr, int &nb_frames) {
   int overlap = (int)(31 * frame_length / 32);
   int advance = frame_length - overlap;
   int index = 0;
-  nb_frames = (int)(floor(N / advance) - floor(frame_length / advance) + 1);
+  nb_frames = (int)(std::floor(N / advance) - std::floor(frame_length / advance) + 1);
   double window[frame_length];
   for (int i = 0; i < frame_length; i++) {
     //hamming window
-    window[i] = 0.54 - 0.46*cos(2 * M_PI*i / (frame_length - 1));
+    window[i] = 0.54 - 0.46*std::cos(2 * M_PI*i / (frame_length - 1));
   }
 
   double frame[frame_length];
@@ -304,7 +302,7 @@ uint32_t* ph_audiohash(float *buf, int N, int sr, int &nb_frames) {
   double nyqbark = maxbark - minbark;
   int nfilts = 33;
   double stepbarks = nyqbark / (nfilts - 1);
-  int nb_barks = (int)(floor(nfft_half / 2 + 1));
+  int nb_barks = (int)(std::floor(nfft_half / 2 + 1));
   double barkwidth = 1.06;
 
   double freqs[nb_barks];
@@ -340,7 +338,7 @@ uint32_t* ph_audiohash(float *buf, int N, int sr, int &nb_frames) {
       hif = barkdiff / barkwidth + 0.5;
       double m = std::min(lof, hif);
       m = std::min(0.0, m);
-      m = pow(10, m);
+      m = std::pow(10, m);
       wts[i][j] = m;
     }
   }
@@ -453,7 +451,7 @@ double* ph_audio_distance_ber(uint32_t *hash_a, const int Na, uint32_t *hash_b, 
   double *dist = nullptr;
 
   for (int i = 0; i < Nc; i++) {
-    M = (int)floor(std::min(N1, N2 - i) / block_size);
+    M = (int)std::floor(std::min(N1, N2 - i) / block_size);
 
     pha = ptrA;
     phb = ptrB + i;
@@ -506,9 +504,9 @@ double* ph_audio_distance_ber(uint32_t *hash_a, const int Na, uint32_t *hash_b, 
 #if HAVE_PTHREAD
 
 void *ph_audio_thread(void *pSlice) {
-  slice *s = (slice *)pSlice;
+  ph_slice *s = (ph_slice *)pSlice;
   for (int i = 0; i < s->n; ++i)  {
-    DP *dp = (DP *)s->hash_p[i];
+    ph_datapoint *dp = (ph_datapoint *)s->hash_p[i];
     int N, count;
     std::pair<int, int> *p = (std::pair<int, int> *)s->hash_params;
     float *buf = ph_readaudio(dp->id, p->first, p->second, nullptr, N, 0.0F);
@@ -522,7 +520,7 @@ void *ph_audio_thread(void *pSlice) {
   return nullptr;
 }
 
-DP** ph_audio_hashes(char *files[], int count, int sr, int channels, int threads) {
+ph_datapoint** ph_audio_hashes(char *files[], int count, int sr, int channels, int threads) {
   if (!files || count == 0)
     return nullptr;
 
@@ -535,10 +533,10 @@ DP** ph_audio_hashes(char *files[], int count, int sr, int channels, int threads
     num_threads = ph_num_threads();
   }
 
-  DP **hashes = (DP**)malloc(count*sizeof(DP*));
+  ph_datapoint **hashes = (ph_datapoint**)malloc(count*sizeof(ph_datapoint*));
 
   for (int i = 0; i < count; ++i) {
-    hashes[i] = (DP *)malloc(sizeof(DP));
+    hashes[i] = (ph_datapoint *)malloc(sizeof(ph_datapoint));
     hashes[i]->id = strdup(files[i]);
   }
 
@@ -547,9 +545,9 @@ DP** ph_audio_hashes(char *files[], int count, int sr, int channels, int threads
   int rem = count % num_threads;
   int start = 0;
   int off;
-  slice *s = new slice[num_threads];
+  ph_slice *s = new ph_slice[num_threads];
   for (int n = 0; n < num_threads; ++n) {
-    off = (int)floor((count / (float)num_threads) + (rem>0 ? num_threads - (count % num_threads) : 0));
+    off = (int)std::floor((count / (float)num_threads) + (rem>0 ? num_threads - (count % num_threads) : 0));
 
     s[n].hash_p = &hashes[start];
     s[n].n = off;

@@ -37,7 +37,7 @@ D Grant Starkweather - dstarkweather@phash.org
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
-#include "callbacks.h"
+#include "callbackmanager.h"
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif

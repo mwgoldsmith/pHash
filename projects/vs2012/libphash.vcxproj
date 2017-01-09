@@ -87,19 +87,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\phcomplex.c" />
-    <ClCompile Include="..\..\src\ph_fft.c" />
+    <ClCompile Include="..\..\src\audiohash.cpp" />
     <ClCompile Include="..\..\src\phash.cpp" />
-    <ClCompile Include="..\..\src\cimgffmpeg.cpp" />
-    <ClCompile Include="..\..\src\audiophash.cpp" />
+    <ClCompile Include="..\..\src\fft.cpp" />
+    <ClCompile Include="..\..\src\MediaContext.cpp" />
+    <ClCompile Include="..\..\src\VideoProcessor.cpp" />
+    <ClCompile Include="..\..\src\callbackmanager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\phashconfig.h" />
-    <ClInclude Include="..\..\include\phcomplex.h" />
-    <ClInclude Include="..\..\include\ph_fft.h" />
-    <ClInclude Include="..\..\include\phash.h" />
-    <ClCompile Include="..\..\include\cimgffmpeg.h" />
-    <ClCompile Include="..\..\include\audiophash.h" />
+    <ClInclude Include="..\..\config.h" />
+    <ClInclude Include="..\..\src\phash.h" />
+    <ClInclude Include="..\..\src\internal.h" />
+    <ClInclude Include="..\..\include\fft.h" />
+    <ClInclude Include="..\..\include\audiohash.h" />
+    <ClInclude Include="..\..\include\callbackmanager.h" />
+    <ClInclude Include="..\..\include\MediaContext.h" />
+    <ClInclude Include="..\..\include\VideoProcessor.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
