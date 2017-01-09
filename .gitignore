@@ -20,7 +20,7 @@ missing
 src/Makefile
 src/Makefile.in
 stamp-h*
-
+.vscode/
 .deps/
 .libs/
 
